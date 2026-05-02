@@ -5,9 +5,6 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
@@ -18,7 +15,6 @@ import {
   responsiveSpacing,
   scale,
   getResponsiveBorderRadius,
-  responsiveDimensions,
 } from '../utils/responsive';
 import {
   sortTasksByUrgency,
@@ -26,7 +22,6 @@ import {
   TaskWithUrgency,
 } from '../utils/taskUrgency';
 import TaskCheckboxItem from '../components/TaskCheckboxItem';
-import UpcomingTasksPanel from '../components/UpcomingTasksPanel';
 
 const DashboardScreen: React.FC = () => {
   const { state: tasksState, fetchTasksToday } = useTasks();
@@ -94,11 +89,7 @@ const DashboardScreen: React.FC = () => {
       });
     } catch (error) {
       // Revert on error
-      setLocalTasks((prev) => [...prev, task].sort((a, b) => {
-        const urgencyA = enrichTaskWithUrgency(a);
-        const urgencyB = enrichTaskWithUrgency(b);
-        return urgencyA.urgencyLevel.localeCompare(urgencyB.urgencyLevel);
-      }));
+      setLocalTasks((prev) => [...prev, task]);
       setLocalStats((prev) => ({
         completedToday: Math.max(0, prev.completedToday - 1),
         pending: prev.pending + 1,
@@ -116,44 +107,26 @@ const DashboardScreen: React.FC = () => {
     console.log('Task pressed:', taskId);
   };
 
-  const todaysPendingTasks = sortTasksByUrgency(
-    localTasks
-      .filter((task) => task.status !== 'completed')
-      .map(enrichTaskWithUrgency)
-  );
-
-  const upcomingTasks = localTasks.filter(
-    (task) =>
-      task.status !== 'completed' &&
-      new Date(task.dueDate).getTime() > new Date().getTime()
-  );
+  const tasksToday = sortTasksByUrgency(
+    localTasks.filter((task) => task.status !== 'completed')
+  ).map(enrichTaskWithUrgency);
 
   return (
     <View style={styles.container}>
-      {/* Stats Section - Fixed Top */}
-      <View style={styles.statsSection}>
-        <View style={styles.statItem}>
-          <Text style={styles.statIcon}>✅</Text>
-          <View style={styles.statContent}>
-            <Text style={styles.statValue}>{localStats.completedToday}</Text>
-            <Text style={styles.statLabel}>Completed Today</Text>
-          </View>
-        </View>
-
-        <View style={styles.statDivider} />
-
-        <View style={styles.statItem}>
-          <Text style={styles.statIcon}>☐</Text>
-          <View style={styles.statContent}>
-            <Text style={styles.statValue}>{localStats.pending}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
-          </View>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>Today</Text>
+        <Text style={styles.date}>
+          {new Date().toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Text>
       </View>
 
-      {/* Main Content - Scrollable */}
-      <ScrollView
-        style={styles.content}
+      <FlatList
+        data={tasksToday}
+        keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -161,77 +134,82 @@ const DashboardScreen: React.FC = () => {
             tintColor={COLORS.accent}
           />
         }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Today's Tasks Panel - Half Screen */}
-        <View style={styles.todaysTasksPanel}>
-          <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>📝 Today's Tasks</Text>
-            <Text style={styles.taskCount}>{todaysPendingTasks.length}</Text>
+        renderItem={({ item }) => (
+          <TaskCheckboxItem
+            task={item}
+            onPress={handleTaskPress}
+            onCheckboxPress={handleCheckboxPress}
+            isCompleting={completingTaskIds.has(item.id)}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Great! No tasks today</Text>
           </View>
+        }
+        contentContainerStyle={styles.listContent}
+      />
 
-          {todaysPendingTasks.length > 0 ? (
-            <View style={styles.tasksList}>
-              {todaysPendingTasks.map((task) => (
-                <TaskCheckboxItem
-                  key={task.id}
-                  task={task}
-                  onPress={handleTaskPress}
-                  onCheckboxPress={handleCheckboxPress}
-                  isCompleting={completingTaskIds.has(task.id)}
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>🎉</Text>
-              <Text style={styles.emptyText}>Great! No tasks for today</Text>
-              <TouchableOpacity style={styles.createButton}>
-                <Text style={styles.createButtonText}>+ Create New Task</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{localStats.completedToday}</Text>
+          <Text style={styles.statLabel}>Completed Today</Text>
         </View>
-
-        {/* Upcoming Tasks Panel */}
-        <UpcomingTasksPanel
-          tasks={upcomingTasks}
-          onTaskPress={handleTaskPress}
-        />
-      </ScrollView>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{localStats.pending}</Text>
+          <Text style={styles.statLabel}>Pending</Text>
+        </View>
+      </View>
     </View>
   );
 };
-
-const windowHeight = require('react-native').Dimensions.get('window').height;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  // Stats Section - Fixed at top
-  statsSection: {
-    flexDirection: 'row',
-    backgroundColor: '#fbfbfa',
+  header: {
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingTop: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.md,
+  },
+  title: {
+    fontSize: responsiveFontSize.h1,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  date: {
+    fontSize: responsiveFontSize.small,
+    color: COLORS.textSecondary,
+    marginTop: responsiveSpacing.xs,
+  },
+  listContent: {
     paddingHorizontal: responsiveSpacing.lg,
     paddingVertical: responsiveSpacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    minHeight: scale(80),
-    alignItems: 'center',
   },
-  statItem: {
-    flex: 1,
+  empty: {
+    alignItems: 'center',
+    paddingVertical: responsiveSpacing.xxl,
+  },
+  emptyText: {
+    fontSize: responsiveFontSize.body,
+    color: COLORS.textTertiary,
+  },
+  statsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.lg,
+    gap: responsiveSpacing.md,
+    flexWrap: 'wrap',
   },
-  statIcon: {
-    fontSize: scale(24),
-    marginRight: responsiveSpacing.md,
-  },
-  statContent: {
+  statCard: {
     flex: 1,
+    minWidth: scale(150),
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: getResponsiveBorderRadius(),
+    padding: responsiveSpacing.lg,
+    alignItems: 'center',
   },
   statValue: {
     fontSize: responsiveFontSize.h2,
@@ -241,75 +219,8 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginTop: scale(2),
-  },
-  statDivider: {
-    width: 1,
-    height: scale(50),
-    backgroundColor: COLORS.border,
-    marginHorizontal: responsiveSpacing.md,
-  },
-  // Main scrollable content
-  content: {
-    flex: 1,
-  },
-  // Today's Tasks Panel
-  todaysTasksPanel: {
-    backgroundColor: COLORS.white,
-    minHeight: windowHeight * 0.5,
-    maxHeight: windowHeight * 0.6,
-    paddingHorizontal: responsiveSpacing.lg,
-    paddingVertical: responsiveSpacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  panelHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: responsiveSpacing.md,
-  },
-  panelTitle: {
-    fontSize: responsiveFontSize.body,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  taskCount: {
-    fontSize: responsiveFontSize.small,
-    backgroundColor: COLORS.accent,
-    color: COLORS.white,
-    paddingHorizontal: responsiveSpacing.sm,
-    paddingVertical: scale(2),
-    borderRadius: scale(12),
-    fontWeight: '600',
-  },
-  tasksList: {
-    gap: responsiveSpacing.sm,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: responsiveSpacing.xxl,
-  },
-  emptyEmoji: {
-    fontSize: scale(48),
-    marginBottom: responsiveSpacing.md,
-  },
-  emptyText: {
-    fontSize: responsiveFontSize.body,
-    color: COLORS.textSecondary,
-    marginBottom: responsiveSpacing.lg,
-  },
-  createButton: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: responsiveSpacing.lg,
-    paddingVertical: responsiveSpacing.md,
-    borderRadius: getResponsiveBorderRadius(),
-  },
-  createButtonText: {
-    color: COLORS.white,
-    fontSize: responsiveFontSize.small,
-    fontWeight: '600',
+    marginTop: responsiveSpacing.xs,
+    textAlign: 'center',
   },
 });
 
