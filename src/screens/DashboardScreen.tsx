@@ -12,142 +12,254 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/colors';
 import { useTasks } from '../context/TasksContext';
 import { useOrders } from '../context/OrdersContext';
-import {
-  responsiveSpacing,
-  scale,
-} from '../utils/responsive';
+import { scale } from '../utils/responsive';
 import {
   sortTasksByUrgency,
   enrichTaskWithUrgency,
 } from '../utils/taskUrgency';
 import TaskCheckboxItem from '../components/TaskCheckboxItem';
+import SkeletonLoader from '../components/SkeletonLoader';
 import CreateOrderModal from '../components/CreateOrderModal';
-import { Order } from '../types';
+import { Task } from '../types';
 
 type DashboardScreenProps = NativeStackScreenProps<any, 'Dashboard'>;
 
+interface TaskStats {
+  orders: number;
+  pending: number;
+  completedToday: number;
+  overdue: number;
+}
+
+interface CategorizedTasks {
+  today: Task[];
+  upcoming: Map<string, Task[]>;
+}
+
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
-  const { state: tasksState, fetchTasksToday } = useTasks();
+  const { state: tasksState, updateTaskStatus } = useTasks();
   const { state: ordersState, createOrder } = useOrders();
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(
-    new Set()
-  );
-  const [localTasks, setLocalTasks] = useState(tasksState.tasks);
-  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
-  const [creatingOrder, setCreatingOrder] = useState(false);
-  const [localStats, setLocalStats] = useState({
+
+  // Data state
+  const [stats, setStats] = useState<TaskStats>({
     orders: 0,
     pending: 0,
-    done: 0,
+    completedToday: 0,
+    overdue: 0,
+  });
+  const [categorizedTasks, setCategorizedTasks] = useState<CategorizedTasks>({
+    today: [],
+    upcoming: new Map(),
   });
 
-  useEffect(() => {
-    fetchTasksToday();
-  }, []);
+  // UI state
+  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
-  // Sync local state with global state
-  useEffect(() => {
-    setLocalTasks(tasksState.tasks);
-    const doneCount = tasksState.tasks.filter(
-      (t) => t.status === 'completed'
-    ).length;
-    const pendingCount = tasksState.tasks.filter(
-      (t) => t.status !== 'completed'
-    ).length;
-    setLocalStats((prev) => ({
-      ...prev,
-      pending: pendingCount,
-      done: doneCount,
+  // Helper function to categorize and process tasks
+  const processTaskData = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const todayTasks: Task[] = [];
+    const upcomingMap = new Map<string, Task[]>();
+
+    tasksState.tasks.forEach((task) => {
+      const taskDueDate = new Date(task.dueDate);
+      const taskDueDateOnly = new Date(
+        taskDueDate.getFullYear(),
+        taskDueDate.getMonth(),
+        taskDueDate.getDate()
+      );
+
+      // Today's tasks (including overdue)
+      if (taskDueDateOnly <= today && task.status !== 'completed') {
+        todayTasks.push(task);
+      } else if (taskDueDateOnly > today && task.status !== 'completed') {
+        // Upcoming tasks
+        const dateKey = taskDueDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
+        if (!upcomingMap.has(dateKey)) {
+          upcomingMap.set(dateKey, []);
+        }
+        upcomingMap.get(dateKey)!.push(task);
+      }
+    });
+
+    // Sort today's tasks by urgency
+    const sortedTodayTasks = sortTasksByUrgency(todayTasks).map(
+      enrichTaskWithUrgency
+    );
+
+    // Calculate stats
+    const overdueTasks = todayTasks.filter(
+      (t) => new Date(t.dueDate) < today && t.status !== 'completed'
+    );
+    const pendingTasks = tasksState.tasks.filter(
+      (t) => t.status === 'pending'
+    );
+    const completedToday = tasksState.tasks.filter(
+      (t) =>
+        t.status === 'completed' &&
+        t.completedAt &&
+        new Date(t.completedAt).toDateString() === today.toDateString()
+    );
+
+    setStats({
       orders: ordersState.orders.length,
-    }));
-  }, [tasksState.tasks, ordersState.orders]);
+      pending: pendingTasks.length,
+      completedToday: completedToday.length,
+      overdue: overdueTasks.length,
+    });
 
-  const handleCreateOrderPress = () => {
-    setShowCreateOrderModal(true);
+    setCategorizedTasks({
+      today: sortedTodayTasks,
+      upcoming: upcomingMap,
+    });
   };
 
+  // Initial load with parallel fetching simulation
+  useEffect(() => {
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      try {
+        // Simulate parallel API requests:
+        // GET /orders, GET /tasks/today, GET /tasks
+        await Promise.all([
+          new Promise((resolve) => setTimeout(resolve, 800)), // GET /orders
+          new Promise((resolve) => setTimeout(resolve, 600)), // GET /tasks/today
+          new Promise((resolve) => setTimeout(resolve, 700)), // GET /tasks
+        ]);
+
+        processTaskData();
+      } catch (error) {
+        console.error('Failed to load dashboard:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
+  // Sync with task/order changes
+  useEffect(() => {
+    if (!isLoading) {
+      processTaskData();
+    }
+  }, [tasksState.tasks, ordersState.orders]);
+
   const handleCreateOrder = async (orderData: any) => {
-    setCreatingOrder(true);
     try {
       const newOrder = await createOrder(orderData);
       setShowCreateOrderModal(false);
-      
-      // Show success message
-      Alert.alert('✓ Order Created!', `${orderData.vendorName} has been added.`, [
-        {
-          text: 'View Order',
-          onPress: () => {
-            navigation.navigate('OrderDetails', { orderId: newOrder.id });
+
+      Alert.alert(
+        '✓ Order Created!',
+        `${orderData.vendorName} has been added.`,
+        [
+          {
+            text: 'View Order',
+            onPress: () => {
+              navigation.navigate('OrderDetails', { orderId: newOrder.id });
+            },
           },
-        },
-        {
-          text: 'Done',
-          onPress: () => {},
-        },
-      ]);
+          {
+            text: 'Done',
+            onPress: () => {},
+          },
+        ]
+      );
     } catch (error) {
       Alert.alert('Error', 'Failed to create order. Please try again.');
-    } finally {
-      setCreatingOrder(false);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchTasksToday();
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      processTaskData();
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handleCheckboxPress = async (taskId: string) => {
-    const task = localTasks.find((t) => t.id === taskId);
-    if (!task) return;
-
-    // Optimistic update
-    setCompletingTaskIds((prev) => new Set(prev).add(taskId));
-    setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
-    setLocalStats((prev) => ({
-      ...prev,
-      pending: Math.max(0, prev.pending - 1),
-      done: prev.done + 1,
-    }));
-
+  const handleTaskCheckboxPress = async (task: Task) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setCompletingTaskIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(taskId);
-        return newSet;
-      });
+      setUpdatingTaskId(task.id);
+
+      // Cycle through statuses
+      let nextStatus: 'pending' | 'in-progress' | 'completed';
+      switch (task.status) {
+        case 'pending':
+          nextStatus = 'in-progress';
+          break;
+        case 'in-progress':
+          nextStatus = 'completed';
+          break;
+        case 'completed':
+          nextStatus = 'pending';
+          break;
+        default:
+          nextStatus = 'pending';
+      }
+
+      await updateTaskStatus(task.id, nextStatus);
     } catch (error) {
-      setLocalTasks((prev) => [...prev, task]);
-      setLocalStats((prev) => ({
-        ...prev,
-        pending: prev.pending + 1,
-        done: Math.max(0, prev.done - 1),
-      }));
-      setCompletingTaskIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(taskId);
-        return newSet;
-      });
+      Alert.alert('Error', 'Failed to update task. Please try again.');
+    } finally {
+      setUpdatingTaskId(null);
     }
   };
 
-  const handleTaskPress = (taskId: string) => {
-    console.log('Task pressed:', taskId);
-  };
-
-  const tasksToday = sortTasksByUrgency(
-    localTasks.filter((task) => task.status !== 'completed')
-  ).map(enrichTaskWithUrgency);
-
   const today = new Date();
   const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-  const dateStr = `${dayName}, ${today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+  const dateStr = `${dayName}, ${today.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  })}`;
+
+  // Get upcoming dates
+  const upcomingDates = Array.from(categorizedTasks.upcoming.keys()).sort();
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Today</Text>
+            <SkeletonLoader count={1} height={scale(12)} width={scale(120)} />
+          </View>
+          <View style={styles.headerIcons}>
+            <View style={styles.iconButton} />
+            <View style={styles.avatar} />
+          </View>
+        </View>
+
+        {/* Stats Skeleton */}
+        <View style={styles.statsSection}>
+          <SkeletonLoader count={1} height={scale(60)} width="48%" />
+          <SkeletonLoader count={1} height={scale(60)} width="48%" />
+        </View>
+
+        {/* Content Skeleton */}
+        <ScrollView style={styles.content}>
+          <View style={styles.section}>
+            <SkeletonLoader count={4} height={scale(50)} />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -168,23 +280,21 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, styles.statCardOrders]}>
-            <Text style={styles.statValue}>{localStats.orders}</Text>
-            <Text style={styles.statLabel}>Orders</Text>
+        {/* Stats Section - Fixed at top */}
+        <View style={styles.statsSection}>
+          <View style={[styles.statCard, styles.statCardCompleted]}>
+            <Text style={[styles.statValue, { color: COLORS.success }]}>
+              ✅
+            </Text>
+            <Text style={styles.statLabel}>Completed</Text>
+            <Text style={styles.statCount}>{stats.completedToday}</Text>
           </View>
           <View style={[styles.statCard, styles.statCardPending]}>
             <Text style={[styles.statValue, { color: COLORS.warning }]}>
-              {localStats.pending}
+              ☐
             </Text>
             <Text style={styles.statLabel}>Pending</Text>
-          </View>
-          <View style={[styles.statCard, styles.statCardDone]}>
-            <Text style={[styles.statValue, { color: COLORS.success }]}>
-              {localStats.done}
-            </Text>
-            <Text style={styles.statLabel}>Done</Text>
+            <Text style={styles.statCount}>{stats.pending}</Text>
           </View>
         </View>
 
@@ -203,46 +313,95 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Today's Tasks</Text>
-              <Text style={styles.taskCount}>{tasksToday.length} tasks</Text>
+              <Text style={styles.taskCount}>{categorizedTasks.today.length}</Text>
             </View>
 
-            {tasksToday.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No tasks today</Text>
+            {categorizedTasks.today.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateIcon}>📋</Text>
+                <Text style={styles.emptyStateText}>No tasks today</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Great work! You're all caught up
+                </Text>
               </View>
             ) : (
               <View style={styles.tasksList}>
-                {tasksToday.map((task) => (
-                  <TaskCheckboxItem
+                {categorizedTasks.today.map((task) => (
+                  <TouchableOpacity
                     key={task.id}
-                    task={task}
-                    onPress={handleTaskPress}
-                    onCheckboxPress={handleCheckboxPress}
-                    isCompleting={completingTaskIds.has(task.id)}
-                  />
+                    style={styles.taskItem}
+                    onPress={() => handleTaskCheckboxPress(task)}
+                    disabled={updatingTaskId === task.id}
+                    activeOpacity={0.7}
+                  >
+                    <TaskCheckboxItem
+                      task={task}
+                      onPress={() => {}}
+                      onCheckboxPress={() => handleTaskCheckboxPress(task)}
+                      isCompleting={updatingTaskId === task.id}
+                    />
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
           </View>
 
           {/* Upcoming Tasks Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
-              <Text style={styles.collapseIcon}>▾</Text>
+          {upcomingDates.length > 0 && (
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.collapsibleHeader}
+                onPress={() => setUpcomingExpanded(!upcomingExpanded)}
+              >
+                <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
+                <Text
+                  style={[
+                    styles.collapseIcon,
+                    upcomingExpanded && styles.collapseIconOpen,
+                  ]}
+                >
+                  ▶
+                </Text>
+              </TouchableOpacity>
+
+              {upcomingExpanded && (
+                <View style={styles.upcomingContent}>
+                  {upcomingDates.map((dateKey) => {
+                    const tasksForDate = categorizedTasks.upcoming.get(dateKey) || [];
+                    return (
+                      <View key={dateKey} style={styles.upcomingDateGroup}>
+                        <Text style={styles.upcomingDateLabel}>
+                          📅 {dateKey}: {tasksForDate.length} tasks
+                        </Text>
+                        <View style={styles.upcomingTasksList}>
+                          {tasksForDate.map((task) => (
+                            <TouchableOpacity
+                              key={task.id}
+                              style={styles.upcomingTaskItem}
+                            >
+                              <Text style={styles.upcomingTaskName}>
+                                {task.name}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-            <View style={styles.upcomingEmpty}>
-              <Text style={styles.upcomingEmptyText}>No upcoming tasks</Text>
-            </View>
-          </View>
+          )}
 
           {/* New Order Button */}
           <TouchableOpacity
             style={styles.newOrderButton}
-            onPress={handleCreateOrderPress}
+            onPress={() => setShowCreateOrderModal(true)}
           >
             <Text style={styles.newOrderButtonText}>+ New Order</Text>
           </TouchableOpacity>
+
+          <View style={{ height: scale(20) }} />
         </ScrollView>
       </View>
 
@@ -318,11 +477,11 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontFamily: 'monospace',
   },
-  statsGrid: {
+  statsSection: {
     flexDirection: 'row',
     paddingHorizontal: scale(16),
-    paddingVertical: scale(14),
-    gap: scale(8),
+    paddingVertical: scale(12),
+    gap: scale(10),
     backgroundColor: COLORS.backgroundSecondary,
   },
   statCard: {
@@ -331,108 +490,153 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderTopWidth: 3,
-    paddingVertical: scale(10),
-    paddingHorizontal: scale(8),
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(10),
     alignItems: 'center',
   },
-  statCardOrders: {
-    borderTopColor: COLORS.accent,
+  statCardCompleted: {
+    backgroundColor: '#f0f7f3',
+    borderColor: '#c8e6d5',
   },
   statCardPending: {
-    borderTopColor: COLORS.warning,
-  },
-  statCardDone: {
-    borderTopColor: COLORS.success,
+    backgroundColor: '#fef5eb',
+    borderColor: '#f5d4a8',
   },
   statValue: {
-    fontSize: scale(22),
-    fontWeight: '700',
-    color: COLORS.accent,
-    fontFamily: 'Georgia',
+    fontSize: scale(18),
+    marginBottom: scale(4),
   },
   statLabel: {
     fontSize: scale(9),
     color: COLORS.textSecondary,
     fontFamily: 'monospace',
-    letterSpacing: 0.8,
-    marginTop: scale(2),
+    letterSpacing: 0.5,
+    marginBottom: scale(4),
     textTransform: 'uppercase',
+  },
+  statCount: {
+    fontSize: scale(18),
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    fontFamily: 'Georgia',
   },
   content: {
     flex: 1,
     paddingHorizontal: scale(16),
   },
   section: {
-    marginTop: scale(14),
-    marginBottom: scale(14),
+    marginTop: scale(16),
+    marginBottom: scale(16),
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: scale(10),
+    marginBottom: scale(12),
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: scale(10),
   },
   sectionTitle: {
-    fontSize: scale(10),
-    fontFamily: 'monospace',
-    letterSpacing: 1.2,
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
+    fontSize: scale(13),
+    fontFamily: 'Georgia',
     fontWeight: '600',
+    color: COLORS.textPrimary,
   },
   taskCount: {
-    fontSize: scale(10),
-    color: COLORS.textSecondary,
-    fontFamily: 'monospace',
+    fontSize: scale(13),
+    fontWeight: '700',
+    color: COLORS.accent,
+    fontFamily: 'Georgia',
   },
   collapseIcon: {
-    fontSize: scale(10),
+    fontSize: scale(12),
     color: COLORS.textSecondary,
+  },
+  collapseIconOpen: {
+    transform: [{ rotate: '90deg' }],
+  },
+  taskItem: {
+    marginBottom: scale(8),
   },
   tasksList: {
+    gap: scale(0),
+  },
+  upcomingContent: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: scale(8),
+    padding: scale(12),
+    gap: scale(12),
+  },
+  upcomingDateGroup: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingBottom: scale(10),
+  },
+  upcomingDateLabel: {
+    fontSize: scale(11),
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    fontFamily: 'Georgia',
+    marginBottom: scale(8),
+  },
+  upcomingTasksList: {
     gap: scale(6),
   },
-  emptyContainer: {
-    paddingVertical: scale(20),
-    alignItems: 'center',
-    justifyContent: 'center',
+  upcomingTaskItem: {
+    backgroundColor: COLORS.white,
+    borderRadius: scale(6),
+    paddingVertical: scale(8),
+    paddingHorizontal: scale(10),
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  emptyText: {
+  upcomingTaskName: {
     fontSize: scale(11),
+    color: COLORS.textPrimary,
+    fontFamily: 'Georgia',
+  },
+  emptyState: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    paddingVertical: scale(24),
+    alignItems: 'center',
+  },
+  emptyStateIcon: {
+    fontSize: scale(32),
+    marginBottom: scale(8),
+  },
+  emptyStateText: {
+    fontSize: scale(14),
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    fontFamily: 'Georgia',
+    marginBottom: scale(4),
+  },
+  emptyStateSubtext: {
+    fontSize: scale(12),
     color: COLORS.textSecondary,
     fontFamily: 'monospace',
   },
-  upcomingEmpty: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#ddd9d3',
-    borderRadius: scale(8),
-    paddingVertical: scale(18),
-    backgroundColor: COLORS.backgroundTertiary,
-    alignItems: 'center',
-  },
-  upcomingEmptyText: {
-    fontSize: scale(11),
-    color: COLORS.textTertiary,
-    fontFamily: 'monospace',
-    letterSpacing: 0.5,
-  },
   newOrderButton: {
-    width: '100%',
     backgroundColor: COLORS.textPrimary,
     borderRadius: scale(8),
-    paddingVertical: scale(13),
-    marginBottom: scale(20),
+    paddingVertical: scale(12),
     alignItems: 'center',
+    marginTop: scale(16),
+    marginBottom: scale(16),
   },
   newOrderButtonText: {
-    color: COLORS.white,
-    fontSize: scale(11),
+    fontSize: scale(13),
     fontWeight: '600',
+    color: COLORS.white,
     fontFamily: 'monospace',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
   },
 });
 
