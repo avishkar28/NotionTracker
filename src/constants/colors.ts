@@ -1,27 +1,29 @@
-// Notion-inspired color palette
+// Notion-inspired color palette (Freelance Notion White Theme)
 export const COLORS = {
   // Backgrounds
-  background: '#ffffff',
-  backgroundSecondary: '#fbfbfa',
+  background: '#f7f6f3',
+  backgroundSecondary: '#ffffff',
+  backgroundTertiary: '#fafaf8',
   
   // Text
-  textPrimary: '#37352f',
-  textSecondary: '#787774',
-  textTertiary: '#9b9390',
+  textPrimary: '#191919',
+  textSecondary: '#9b9b9b',
+  textTertiary: '#bbb7b0',
   
   // Borders & Dividers
-  border: 'rgba(0,0,0,0.08)',
+  border: '#e8e5e0',
   
   // Semantic colors
-  accent: '#0a66d2',
-  success: '#16a34a',
-  warning: '#ea580c',
-  danger: '#d44536',
+  accent: '#2383e2',
+  success: '#37a169',
+  warning: '#e9973f',
+  danger: '#cb2431',
   
   // Additional
   white: '#ffffff',
   black: '#000000',
   overlay: 'rgba(0,0,0,0.5)',
+  darkOverlay: '#2c2c2c',
 };
 
 export type ColorKey = keyof typeof COLORS;

@@ -47,30 +47,63 @@ const TaskCheckboxItem: React.FC<TaskCheckboxItemProps> = ({
     onCheckboxPress(task.id);
   };
 
+  const getUrgencyBadgeStyle = (urgency: string) => {
+    switch (urgency) {
+      case 'overdue':
+        return {
+          backgroundColor: '#fef0f0',
+          borderColor: '#fbc8cb',
+          textColor: COLORS.danger,
+        };
+      case 'urgent':
+        return {
+          backgroundColor: '#fef5eb',
+          borderColor: '#f5d4a8',
+          textColor: COLORS.warning,
+        };
+      case 'warning':
+        return {
+          backgroundColor: '#fef5eb',
+          borderColor: '#f5d4a8',
+          textColor: '#e9973f',
+        };
+      default:
+        return {
+          backgroundColor: '#f0f7f3',
+          borderColor: '#c8e6d5',
+          textColor: COLORS.success,
+        };
+    }
+  };
+
+  const badgeStyle = getUrgencyBadgeStyle(task.urgencyLevel);
+  const urgencyLabel = task.urgencyLevel.toUpperCase();
+
   return (
     <TouchableOpacity
       style={styles.container}
       onPress={() => onPress(task.id)}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <View style={styles.checkboxContainer}>
-        <Animated.View style={[styles.checkbox, { transform: [{ scale: scaleAnim }] }]}>
-          <TouchableOpacity
-            style={[
-              styles.checkboxInner,
-              {
-                borderColor: task.urgencyColor,
-              },
-            ]}
-            onPress={handleCheckboxPress}
-            disabled={isCompleting}
-          >
-            <Text style={styles.checkboxText}>
-              {task.status === 'completed' ? '✓' : ''}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+      <Animated.View 
+        style={[
+          styles.checkbox, 
+          { transform: [{ scale: scaleAnim }] }
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.checkboxInner,
+            task.status === 'completed' && styles.checkboxCompleted,
+          ]}
+          onPress={handleCheckboxPress}
+          disabled={isCompleting}
+        >
+          <Text style={styles.checkboxText}>
+            {task.status === 'completed' ? '✓' : ''}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
 
       <View style={styles.contentContainer}>
         <Text
@@ -78,31 +111,50 @@ const TaskCheckboxItem: React.FC<TaskCheckboxItemProps> = ({
             styles.taskName,
             task.status === 'completed' && styles.taskNameCompleted,
           ]}
-          numberOfLines={2}
+          numberOfLines={1}
         >
           {task.name}
         </Text>
 
-        <View style={styles.metaContainer}>
-          <Text style={styles.orderName} numberOfLines={1}>
-            {task.orderName}
-          </Text>
-          <Text
+        <Text 
+          style={[
+            styles.description,
+            task.status === 'completed' && styles.descriptionCompleted,
+          ]}
+          numberOfLines={1}
+        >
+          {task.orderName}
+        </Text>
+
+        <View style={styles.badgeContainer}>
+          <View 
+            style={[
+              styles.urgencyBadge,
+              { 
+                backgroundColor: badgeStyle.backgroundColor,
+                borderColor: badgeStyle.borderColor,
+              }
+            ]}
+          >
+            <Text 
+              style={[
+                styles.urgencyText,
+                { color: badgeStyle.textColor }
+              ]}
+            >
+              {urgencyLabel}
+            </Text>
+          </View>
+          <Text 
             style={[
               styles.timeRemaining,
-              { color: task.urgencyColor },
+              { color: task.urgencyColor }
             ]}
           >
             {task.timeRemaining}
           </Text>
         </View>
       </View>
-
-      {isCompleting && (
-        <View style={styles.loadingIndicator}>
-          <Text style={styles.loadingText}>✓</Text>
-        </View>
-      )}
     </TouchableOpacity>
   );
 };
@@ -110,73 +162,82 @@ const TaskCheckboxItem: React.FC<TaskCheckboxItemProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: COLORS.backgroundSecondary,
     borderRadius: scale(8),
-    padding: responsiveSpacing.md,
-    marginBottom: responsiveSpacing.md,
-    borderLeftWidth: scale(4),
-    borderLeftColor: COLORS.accent,
-    minHeight: scale(70),
-  },
-  checkboxContainer: {
-    marginRight: responsiveSpacing.md,
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: scale(10),
+    marginBottom: responsiveSpacing.sm,
+    gap: scale(10),
   },
   checkbox: {
-    width: scale(24),
-    height: scale(24),
+    justifyContent: 'center',
   },
   checkboxInner: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 2,
-    borderRadius: scale(4),
+    width: scale(16),
+    height: scale(16),
+    borderWidth: 1.5,
+    borderRadius: scale(3),
+    borderColor: '#ddd9d3',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.white,
   },
+  checkboxCompleted: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
   checkboxText: {
-    fontSize: scale(16),
-    color: COLORS.success,
-    fontWeight: 'bold',
+    fontSize: scale(11),
+    color: COLORS.white,
+    fontWeight: '700',
   },
   contentContainer: {
     flex: 1,
   },
   taskName: {
-    fontSize: responsiveFontSize.body,
-    fontWeight: '600',
+    fontSize: scale(13),
+    fontWeight: '700',
     color: COLORS.textPrimary,
-    marginBottom: responsiveSpacing.xs,
+    marginBottom: scale(2),
+    fontFamily: 'Georgia',
   },
   taskNameCompleted: {
     textDecorationLine: 'line-through',
+    color: COLORS.textSecondary,
+  },
+  description: {
+    fontSize: scale(11),
+    color: COLORS.textSecondary,
+    marginBottom: scale(6),
+    fontFamily: 'monospace',
+  },
+  descriptionCompleted: {
+    textDecorationLine: 'line-through',
     color: COLORS.textTertiary,
   },
-  metaContainer: {
+  badgeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: scale(6),
   },
-  orderName: {
-    fontSize: responsiveFontSize.small,
-    color: COLORS.textSecondary,
-    flex: 1,
+  urgencyBadge: {
+    paddingHorizontal: scale(7),
+    paddingVertical: scale(2),
+    borderRadius: scale(4),
+    borderWidth: 1,
+  },
+  urgencyText: {
+    fontSize: scale(9),
+    fontWeight: '600',
+    fontFamily: 'monospace',
+    letterSpacing: 0.5,
   },
   timeRemaining: {
-    fontSize: responsiveFontSize.small,
+    fontSize: scale(9),
     fontWeight: '600',
-    marginLeft: responsiveSpacing.sm,
-  },
-  loadingIndicator: {
-    marginLeft: responsiveSpacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: scale(18),
-    color: COLORS.success,
+    fontFamily: 'monospace',
   },
 });
 

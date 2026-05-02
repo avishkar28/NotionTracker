@@ -5,10 +5,10 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
-import { SPACING } from '../constants/spacing';
-import { TYPOGRAPHY } from '../constants/typography';
 import { useTasks } from '../context/TasksContext';
 import {
   responsiveFontSize,
@@ -19,7 +19,6 @@ import {
 import {
   sortTasksByUrgency,
   enrichTaskWithUrgency,
-  TaskWithUrgency,
 } from '../utils/taskUrgency';
 import TaskCheckboxItem from '../components/TaskCheckboxItem';
 
@@ -31,8 +30,9 @@ const DashboardScreen: React.FC = () => {
   );
   const [localTasks, setLocalTasks] = useState(tasksState.tasks);
   const [localStats, setLocalStats] = useState({
-    completedToday: 0,
-    pending: 0,
+    orders: 8,
+    pending: 4,
+    done: 0,
   });
 
   useEffect(() => {
@@ -42,16 +42,17 @@ const DashboardScreen: React.FC = () => {
   // Sync local state with global state
   useEffect(() => {
     setLocalTasks(tasksState.tasks);
-    const completedCount = tasksState.tasks.filter(
+    const doneCount = tasksState.tasks.filter(
       (t) => t.status === 'completed'
     ).length;
     const pendingCount = tasksState.tasks.filter(
       (t) => t.status !== 'completed'
     ).length;
-    setLocalStats({
-      completedToday: completedCount,
+    setLocalStats((prev) => ({
+      ...prev,
       pending: pendingCount,
-    });
+      done: doneCount,
+    }));
   }, [tasksState.tasks]);
 
   const handleRefresh = async () => {
@@ -64,35 +65,31 @@ const DashboardScreen: React.FC = () => {
   };
 
   const handleCheckboxPress = async (taskId: string) => {
-    // Find the task
     const task = localTasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Optimistic update - immediately remove from list
+    // Optimistic update
     setCompletingTaskIds((prev) => new Set(prev).add(taskId));
     setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
     setLocalStats((prev) => ({
-      completedToday: prev.completedToday + 1,
+      ...prev,
       pending: Math.max(0, prev.pending - 1),
+      done: prev.done + 1,
     }));
 
-    // API call in background
     try {
-      // Simulate API call - in production, this would be a real API call
       await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Success - task stays removed
       setCompletingTaskIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(taskId);
         return newSet;
       });
     } catch (error) {
-      // Revert on error
       setLocalTasks((prev) => [...prev, task]);
       setLocalStats((prev) => ({
-        completedToday: Math.max(0, prev.completedToday - 1),
+        ...prev,
         pending: prev.pending + 1,
+        done: Math.max(0, prev.done - 1),
       }));
       setCompletingTaskIds((prev) => {
         const newSet = new Set(prev);
@@ -103,7 +100,6 @@ const DashboardScreen: React.FC = () => {
   };
 
   const handleTaskPress = (taskId: string) => {
-    // Navigate to task detail (placeholder)
     console.log('Task pressed:', taskId);
   };
 
@@ -111,22 +107,51 @@ const DashboardScreen: React.FC = () => {
     localTasks.filter((task) => task.status !== 'completed')
   ).map(enrichTaskWithUrgency);
 
+  const today = new Date();
+  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateStr = `${dayName}, ${today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Today</Text>
-        <Text style={styles.date}>
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Text>
+        <View>
+          <Text style={styles.title}>Today</Text>
+          <Text style={styles.date}>{dateStr}</Text>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconButton}>
+            <Text style={styles.iconText}>🔍</Text>
+          </TouchableOpacity>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>A</Text>
+          </View>
+        </View>
       </View>
 
-      <FlatList
-        data={tasksToday}
-        keyExtractor={(item) => item.id}
+      {/* Stats Cards */}
+      <View style={styles.statsGrid}>
+        <View style={[styles.statCard, styles.statCardOrders]}>
+          <Text style={styles.statValue}>{localStats.orders}</Text>
+          <Text style={styles.statLabel}>Orders</Text>
+        </View>
+        <View style={[styles.statCard, styles.statCardPending]}>
+          <Text style={[styles.statValue, { color: COLORS.warning }]}>
+            {localStats.pending}
+          </Text>
+          <Text style={styles.statLabel}>Pending</Text>
+        </View>
+        <View style={[styles.statCard, styles.statCardDone]}>
+          <Text style={[styles.statValue, { color: COLORS.success }]}>
+            {localStats.done}
+          </Text>
+          <Text style={styles.statLabel}>Done</Text>
+        </View>
+      </View>
+
+      {/* Scrollable Content */}
+      <ScrollView
+        style={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -134,32 +159,49 @@ const DashboardScreen: React.FC = () => {
             tintColor={COLORS.accent}
           />
         }
-        renderItem={({ item }) => (
-          <TaskCheckboxItem
-            task={item}
-            onPress={handleTaskPress}
-            onCheckboxPress={handleCheckboxPress}
-            isCompleting={completingTaskIds.has(item.id)}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Great! No tasks today</Text>
+      >
+        {/* Today's Tasks Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Today's Tasks</Text>
+            <Text style={styles.taskCount}>{tasksToday.length} tasks</Text>
           </View>
-        }
-        contentContainerStyle={styles.listContent}
-      />
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{localStats.completedToday}</Text>
-          <Text style={styles.statLabel}>Completed Today</Text>
+          {tasksToday.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No tasks today</Text>
+            </View>
+          ) : (
+            <View style={styles.tasksList}>
+              {tasksToday.map((task) => (
+                <TaskCheckboxItem
+                  key={task.id}
+                  task={task}
+                  onPress={handleTaskPress}
+                  onCheckboxPress={handleCheckboxPress}
+                  isCompleting={completingTaskIds.has(task.id)}
+                />
+              ))}
+            </View>
+          )}
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{localStats.pending}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
+
+        {/* Upcoming Tasks Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
+            <Text style={styles.collapseIcon}>▾</Text>
+          </View>
+          <View style={styles.upcomingEmpty}>
+            <Text style={styles.upcomingEmptyText}>No upcoming tasks</Text>
+          </View>
         </View>
-      </View>
+
+        {/* New Order Button */}
+        <TouchableOpacity style={styles.newOrderButton}>
+          <Text style={styles.newOrderButtonText}>+ New Order</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -170,57 +212,177 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: responsiveSpacing.lg,
-    paddingTop: responsiveSpacing.lg,
-    paddingBottom: responsiveSpacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.backgroundSecondary,
   },
   title: {
-    fontSize: responsiveFontSize.h1,
+    fontSize: scale(28),
     fontWeight: '700',
     color: COLORS.textPrimary,
+    fontFamily: 'Georgia',
+    letterSpacing: -0.5,
   },
   date: {
-    fontSize: responsiveFontSize.small,
+    fontSize: scale(10),
     color: COLORS.textSecondary,
-    marginTop: responsiveSpacing.xs,
+    fontFamily: 'monospace',
+    marginTop: scale(3),
+    letterSpacing: 0.1,
+    textTransform: 'uppercase',
   },
-  listContent: {
-    paddingHorizontal: responsiveSpacing.lg,
-    paddingVertical: responsiveSpacing.md,
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: responsiveSpacing.xxl,
-  },
-  emptyText: {
-    fontSize: responsiveFontSize.body,
-    color: COLORS.textTertiary,
-  },
-  statsContainer: {
+  headerIcons: {
     flexDirection: 'row',
-    paddingHorizontal: responsiveSpacing.lg,
-    paddingBottom: responsiveSpacing.lg,
-    gap: responsiveSpacing.md,
-    flexWrap: 'wrap',
+    gap: scale(8),
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: scale(30),
+    height: scale(30),
+    borderRadius: scale(6),
+    backgroundColor: '#eeece9',
+    borderWidth: 1,
+    borderColor: '#ddd9d3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconText: {
+    fontSize: scale(14),
+  },
+  avatar: {
+    width: scale(30),
+    height: scale(30),
+    borderRadius: scale(15),
+    backgroundColor: COLORS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: COLORS.white,
+    fontFamily: 'monospace',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(14),
+    gap: scale(8),
+    backgroundColor: COLORS.backgroundSecondary,
   },
   statCard: {
     flex: 1,
-    minWidth: scale(150),
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: getResponsiveBorderRadius(),
-    padding: responsiveSpacing.lg,
+    backgroundColor: COLORS.white,
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderTopWidth: 3,
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(8),
     alignItems: 'center',
   },
+  statCardOrders: {
+    borderTopColor: COLORS.accent,
+  },
+  statCardPending: {
+    borderTopColor: COLORS.warning,
+  },
+  statCardDone: {
+    borderTopColor: COLORS.success,
+  },
   statValue: {
-    fontSize: responsiveFontSize.h2,
+    fontSize: scale(22),
     fontWeight: '700',
     color: COLORS.accent,
+    fontFamily: 'Georgia',
   },
   statLabel: {
-    fontSize: responsiveFontSize.small,
+    fontSize: scale(9),
     color: COLORS.textSecondary,
-    marginTop: responsiveSpacing.xs,
-    textAlign: 'center',
+    fontFamily: 'monospace',
+    letterSpacing: 0.8,
+    marginTop: scale(2),
+    textTransform: 'uppercase',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: scale(16),
+  },
+  section: {
+    marginTop: scale(14),
+    marginBottom: scale(14),
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: scale(10),
+  },
+  sectionTitle: {
+    fontSize: scale(10),
+    fontFamily: 'monospace',
+    letterSpacing: 1.2,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  taskCount: {
+    fontSize: scale(10),
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  collapseIcon: {
+    fontSize: scale(10),
+    color: COLORS.textSecondary,
+  },
+  tasksList: {
+    gap: scale(6),
+  },
+  emptyContainer: {
+    paddingVertical: scale(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: scale(11),
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  upcomingEmpty: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#ddd9d3',
+    borderRadius: scale(8),
+    paddingVertical: scale(18),
+    backgroundColor: COLORS.backgroundTertiary,
+    alignItems: 'center',
+  },
+  upcomingEmptyText: {
+    fontSize: scale(11),
+    color: COLORS.textTertiary,
+    fontFamily: 'monospace',
+    letterSpacing: 0.5,
+  },
+  newOrderButton: {
+    width: '100%',
+    backgroundColor: COLORS.textPrimary,
+    borderRadius: scale(8),
+    paddingVertical: scale(13),
+    marginBottom: scale(20),
+    alignItems: 'center',
+  },
+  newOrderButtonText: {
+    color: COLORS.white,
+    fontSize: scale(11),
+    fontWeight: '600',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });
 
