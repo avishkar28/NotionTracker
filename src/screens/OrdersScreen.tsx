@@ -11,6 +11,12 @@ import { COLORS } from '../constants/colors';
 import { SPACING, BORDER_RADIUS } from '../constants/spacing';
 import { TYPOGRAPHY } from '../constants/typography';
 import { useOrders } from '../context/OrdersContext';
+import {
+  responsiveFontSize,
+  responsiveSpacing,
+  scale,
+  getResponsiveBorderRadius,
+} from '../utils/responsive';
 
 const OrdersScreen: React.FC = () => {
   const { state: ordersState, fetchOrders } = useOrders();
@@ -99,24 +105,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingTop: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.md,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.h1,
+    fontSize: responsiveFontSize.h1,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
   },
   listContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingVertical: responsiveSpacing.md,
   },
   orderCard: {
     backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: BORDER_RADIUS,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    borderRadius: getResponsiveBorderRadius(),
+    padding: responsiveSpacing.lg,
+    marginBottom: responsiveSpacing.md,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -124,30 +130,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: responsiveSpacing.md,
   },
   vendorName: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
     flex: 1,
   },
   priorityBadge: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS,
-    marginLeft: SPACING.md,
+    paddingHorizontal: responsiveSpacing.md,
+    paddingVertical: responsiveSpacing.xs,
+    borderRadius: getResponsiveBorderRadius(),
+    marginLeft: responsiveSpacing.md,
   },
   priorityText: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.white,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   description: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-    lineHeight: 18,
+    marginBottom: responsiveSpacing.md,
+    lineHeight: scale(18),
   },
   orderFooter: {
     flexDirection: 'row',
@@ -155,20 +161,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deadline: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textTertiary,
   },
   taskCount: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.accent,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   empty: {
     alignItems: 'center',
-    paddingVertical: SPACING.xxl,
+    paddingVertical: responsiveSpacing.xxl,
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textTertiary,
   },
 });

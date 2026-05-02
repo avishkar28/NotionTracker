@@ -12,6 +12,12 @@ import { SPACING, BORDER_RADIUS } from '../constants/spacing';
 import { TYPOGRAPHY } from '../constants/typography';
 import { useTasks } from '../context/TasksContext';
 import { Task } from '../types';
+import {
+  responsiveFontSize,
+  responsiveSpacing,
+  scale,
+  getResponsiveBorderRadius,
+} from '../utils/responsive';
 
 const TasksScreen: React.FC = () => {
   const { state: tasksState, fetchTasks } = useTasks();
@@ -128,25 +134,25 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingTop: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.md,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.h1,
+    fontSize: responsiveFontSize.h1,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    gap: SPACING.sm,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingVertical: responsiveSpacing.md,
+    gap: responsiveSpacing.sm,
   },
   filterChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS,
+    paddingHorizontal: responsiveSpacing.md,
+    paddingVertical: responsiveSpacing.sm,
+    borderRadius: getResponsiveBorderRadius(),
     backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -156,7 +162,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accent,
   },
   filterChipText: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
@@ -164,49 +170,49 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   listContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingVertical: responsiveSpacing.md,
   },
   taskCard: {
     backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: BORDER_RADIUS,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    borderRadius: getResponsiveBorderRadius(),
+    padding: responsiveSpacing.lg,
+    marginBottom: responsiveSpacing.md,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   taskHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: SPACING.md,
+    marginBottom: responsiveSpacing.md,
   },
   statusEmoji: {
-    fontSize: 20,
-    marginRight: SPACING.md,
+    fontSize: scale(20),
+    marginRight: responsiveSpacing.md,
   },
   taskInfo: {
     flex: 1,
   },
   taskName: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
   },
   orderName: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    marginTop: responsiveSpacing.xs,
   },
   dueDate: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textTertiary,
   },
   empty: {
     alignItems: 'center',
-    paddingVertical: SPACING.xxl,
+    paddingVertical: responsiveSpacing.xxl,
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textTertiary,
   },
 });

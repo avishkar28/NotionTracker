@@ -5,11 +5,19 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { SPACING } from '../constants/spacing';
 import { TYPOGRAPHY } from '../constants/typography';
 import { useTasks } from '../context/TasksContext';
+import {
+  responsiveFontSize,
+  responsiveSpacing,
+  scale,
+  getResponsiveBorderRadius,
+  responsiveDimensions,
+} from '../utils/responsive';
 
 const DashboardScreen: React.FC = () => {
   const { state: tasksState, fetchTasksToday } = useTasks();
@@ -92,72 +100,74 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingTop: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.md,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.h1,
+    fontSize: responsiveFontSize.h1,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
   },
   date: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    marginTop: responsiveSpacing.xs,
   },
   listContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingVertical: responsiveSpacing.md,
   },
   taskCard: {
     backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 8,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    borderLeftWidth: 4,
+    borderRadius: getResponsiveBorderRadius(),
+    padding: responsiveSpacing.lg,
+    marginBottom: responsiveSpacing.md,
+    borderLeftWidth: scale(4),
     borderLeftColor: COLORS.accent,
   },
   taskName: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
   },
   taskOrder: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    marginTop: responsiveSpacing.xs,
   },
   empty: {
     alignItems: 'center',
-    paddingVertical: SPACING.xxl,
+    paddingVertical: responsiveSpacing.xxl,
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textTertiary,
   },
   statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.lg,
-    gap: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.lg,
+    gap: responsiveSpacing.md,
+    flexWrap: 'wrap',
   },
   statCard: {
-    flex: 1,
+    flex: responsiveDimensions.isSmallScreen ? 1 : 0,
+    minWidth: responsiveDimensions.isSmallScreen ? 0 : responsiveDimensions.screenWidth / 2 - responsiveSpacing.lg - responsiveSpacing.md / 2,
     backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 8,
-    padding: SPACING.lg,
+    borderRadius: getResponsiveBorderRadius(),
+    padding: responsiveSpacing.lg,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: TYPOGRAPHY.fontSize.h2,
+    fontSize: responsiveFontSize.h2,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.accent,
   },
   statLabel: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    marginTop: responsiveSpacing.xs,
     textAlign: 'center',
   },
 });

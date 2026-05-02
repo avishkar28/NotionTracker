@@ -11,6 +11,11 @@ import { COLORS } from '../constants/colors';
 import { SPACING, BORDER_RADIUS } from '../constants/spacing';
 import { TYPOGRAPHY } from '../constants/typography';
 import { useUI } from '../context/UIContext';
+import {
+  responsiveFontSize,
+  responsiveSpacing,
+  getResponsiveBorderRadius,
+} from '../utils/responsive';
 
 const SettingsScreen: React.FC = () => {
   const { state: uiState, setNotifications, setAutoSync } = useUI();
@@ -86,32 +91,32 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingTop: responsiveSpacing.lg,
+    paddingBottom: responsiveSpacing.md,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.h1,
+    fontSize: responsiveFontSize.h1,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
   },
   section: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingVertical: responsiveSpacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
+    marginBottom: responsiveSpacing.md,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
+    paddingVertical: responsiveSpacing.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -119,17 +124,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingName: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
   },
   settingDesc: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: responsiveFontSize.small,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    marginTop: responsiveSpacing.xs,
   },
   actionItem: {
-    paddingVertical: SPACING.lg,
+    paddingVertical: responsiveSpacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -137,23 +142,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   actionText: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.accent,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   infoItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
+    paddingVertical: responsiveSpacing.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   infoLabel: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textPrimary,
   },
   infoValue: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textSecondary,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },

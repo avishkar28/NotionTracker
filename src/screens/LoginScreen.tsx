@@ -11,6 +11,13 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
 import { SPACING, BORDER_RADIUS } from '../constants/spacing';
 import { TYPOGRAPHY } from '../constants/typography';
+import {
+  responsiveFontSize,
+  responsiveSpacing,
+  scale,
+  getResponsiveBorderRadius,
+  responsiveDimensions,
+} from '../utils/responsive';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -89,60 +96,61 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: responsiveSpacing.lg,
   },
   content: {
     alignItems: 'center',
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.h1,
+    fontSize: responsiveFontSize.h1,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
+    marginBottom: responsiveSpacing.sm,
   },
   subtitle: {
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.xxl,
+    marginBottom: responsiveSpacing.xxl,
   },
   form: {
     width: '100%',
-    gap: SPACING.lg,
+    maxWidth: scale(350),
+    gap: responsiveSpacing.lg,
   },
   input: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    fontSize: TYPOGRAPHY.fontSize.body,
+    borderRadius: getResponsiveBorderRadius(),
+    paddingHorizontal: responsiveSpacing.lg,
+    paddingVertical: responsiveSpacing.md,
+    fontSize: responsiveFontSize.body,
     color: COLORS.textPrimary,
   },
   button: {
     backgroundColor: COLORS.accent,
-    borderRadius: BORDER_RADIUS,
-    paddingVertical: SPACING.md,
+    borderRadius: getResponsiveBorderRadius(),
+    paddingVertical: responsiveSpacing.md,
     alignItems: 'center',
-    marginTop: SPACING.lg,
+    marginTop: responsiveSpacing.lg,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: COLORS.white,
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   demoButton: {
     borderWidth: 1,
     borderColor: COLORS.accent,
-    borderRadius: BORDER_RADIUS,
-    paddingVertical: SPACING.md,
+    borderRadius: getResponsiveBorderRadius(),
+    paddingVertical: responsiveSpacing.md,
     alignItems: 'center',
   },
   demoButtonText: {
     color: COLORS.accent,
-    fontSize: TYPOGRAPHY.fontSize.body,
+    fontSize: responsiveFontSize.body,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
 });
