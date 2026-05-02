@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  Vibration,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/colors';
@@ -194,27 +195,65 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
   const handleTaskCheckboxPress = async (task: Task) => {
     try {
+      // Immediate optimistic update
+      const newStatus = task.status === 'pending' ? 'in-progress' : 'completed';
+      
+      // Remove from visible list optimistically
+      const newTasks = categorizedTasks.today.filter((t) => t.id !== task.id);
+      setCategorizedTasks((prev) => ({
+        ...prev,
+        today: newTasks,
+      }));
+
+      // Update stats optimistically
+      setStats((prev) => ({
+        ...prev,
+        pending: newStatus === 'completed' ? Math.max(0, prev.pending - 1) : prev.pending + 1,
+        completedToday: newStatus === 'completed' ? prev.completedToday + 1 : Math.max(0, prev.completedToday - 1),
+      }));
+
       setUpdatingTaskId(task.id);
 
-      // Cycle through statuses
-      let nextStatus: 'pending' | 'in-progress' | 'completed';
-      switch (task.status) {
-        case 'pending':
-          nextStatus = 'in-progress';
-          break;
-        case 'in-progress':
-          nextStatus = 'completed';
-          break;
-        case 'completed':
-          nextStatus = 'pending';
-          break;
-        default:
-          nextStatus = 'pending';
-      }
+      // Haptic feedback (100ms vibration)
+      Vibration.vibrate(100);
 
-      await updateTaskStatus(task.id, nextStatus);
+      // Send API request in background
+      try {
+        const updatedTask = await updateTaskStatus(task.id, newStatus);
+        
+        // Success - show toast
+        Alert.alert('✓ Task completed!', '', [
+          {
+            text: 'OK',
+            onPress: () => {},
+            style: 'cancel',
+          },
+        ]);
+      } catch (error) {
+        // API failed - revert optimistic update
+        setCategorizedTasks((prev) => ({
+          ...prev,
+          today: [...prev.today, task].sort(
+            (a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
+          ),
+        }));
+
+        setStats((prev) => ({
+          ...prev,
+          pending: newStatus === 'completed' ? prev.pending + 1 : Math.max(0, prev.pending - 1),
+          completedToday: newStatus === 'completed' ? Math.max(0, prev.completedToday - 1) : prev.completedToday,
+        }));
+
+        Alert.alert('✗ Error', 'Failed to complete task. Please try again.', [
+          {
+            text: 'OK',
+            onPress: () => {},
+            style: 'cancel',
+          },
+        ]);
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to update task. Please try again.');
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setUpdatingTaskId(null);
     }
@@ -390,6 +429,36 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
                   })}
                 </View>
               )}
+            </View>
+          )}
+
+          {/* Completed Tasks / Logs Section */}
+          {tasksState.tasks.filter((t) => t.status === 'completed').length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Completed (Logs) ✓ {tasksState.tasks.filter((t) => t.status === 'completed').length}
+              </Text>
+              <View style={styles.logsContent}>
+                {tasksState.tasks
+                  .filter((t) => t.status === 'completed')
+                  .slice(0, 5)
+                  .map((task) => (
+                    <View key={task.id} style={styles.logItem}>
+                      <Text style={styles.logCheckmark}>✓</Text>
+                      <View style={styles.logTaskInfo}>
+                        <Text style={styles.logTaskName}>{task.name}</Text>
+                        <Text style={styles.logTaskDate}>
+                          Completed {new Date(task.completedAt || new Date()).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                {tasksState.tasks.filter((t) => t.status === 'completed').length > 5 && (
+                  <Text style={styles.logsMoreText}>
+                    +{tasksState.tasks.filter((t) => t.status === 'completed').length - 5} more
+                  </Text>
+                )}
+              </View>
             </View>
           )}
 
@@ -637,6 +706,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
     fontFamily: 'monospace',
+  },
+  logsContent: {
+    backgroundColor: '#f9f8f7',
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: '#e8e5e0',
+    padding: scale(12),
+    gap: scale(8),
+    marginTop: scale(12),
+  },
+  logItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: scale(10),
+    paddingVertical: scale(8),
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  logCheckmark: {
+    fontSize: scale(16),
+    color: COLORS.success,
+    fontWeight: '700',
+    marginTop: scale(2),
+  },
+  logTaskInfo: {
+    flex: 1,
+  },
+  logTaskName: {
+    fontSize: scale(11),
+    color: COLORS.textSecondary,
+    fontFamily: 'Georgia',
+    textDecorationLine: 'line-through',
+    marginBottom: scale(2),
+  },
+  logTaskDate: {
+    fontSize: scale(9),
+    color: COLORS.textTertiary,
+    fontFamily: 'monospace',
+  },
+  logsMoreText: {
+    fontSize: scale(10),
+    color: COLORS.accent,
+    fontFamily: 'monospace',
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: scale(4),
   },
 });
 
