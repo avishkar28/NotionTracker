@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Vibration,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/colors';
@@ -33,6 +34,7 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [orderTasks, setOrderTasks] = useState<Task[]>([]);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'tasks' | 'logs'>('tasks');
 
   useEffect(() => {
     if (orderId) {
@@ -40,6 +42,11 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
       const foundOrder = ordersState.orders.find((o) => o.id === orderId);
       if (foundOrder) {
         setOrder(foundOrder);
+        // Simulate API delay for fetching order details
+        const timer = setTimeout(() => {
+          setLoading(false);
+        }, 600);
+        return () => clearTimeout(timer);
       }
     }
     setLoading(false);
@@ -93,7 +100,23 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
           nextStatus = 'pending';
       }
       
+      // Haptic feedback on task update
+      if (nextStatus === 'completed') {
+        Vibration.vibrate(100);
+      }
+      
       await updateTaskStatus(task.id, nextStatus);
+      
+      // Show success message for completed tasks
+      if (nextStatus === 'completed') {
+        Alert.alert('✓ Task completed!', '', [
+          {
+            text: 'OK',
+            onPress: () => {},
+            style: 'cancel',
+          },
+        ]);
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to update task. Please try again.');
     } finally {
@@ -227,9 +250,8 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
 
           {/* Progress Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Progress</Text>
             <View style={styles.progressCard}>
-              <View style={styles.progressInfo}>
+              <View style={styles.progressHeader}>
                 <Text style={styles.progressValue}>
                   {completedCount}/{totalCount}
                 </Text>
@@ -245,112 +267,173 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
                   ]}
                 />
               </View>
+              <Text style={styles.progressPercent}>{Math.round(progressPercentage)}%</Text>
             </View>
           </View>
 
-          {/* Tasks Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Tasks</Text>
-              <TouchableOpacity
-                style={styles.addTaskButton}
-                onPress={() => setShowCreateTaskModal(true)}
+          {/* Tab Navigation */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'tasks' && styles.tabActive,
+              ]}
+              onPress={() => setActiveTab('tasks')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'tasks' && styles.tabTextActive,
+                ]}
               >
-                <Text style={styles.addTaskButtonText}>+ Add Task</Text>
-              </TouchableOpacity>
-            </View>
-
-            {totalCount === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateIcon}>📋</Text>
-                <Text style={styles.emptyStateText}>No tasks yet</Text>
-                <Text style={styles.emptyStateSubtext}>
-                  Create tasks to track work for this order
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.taskList}>
-                {orderTasks.map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    style={styles.taskItem}
-                    onPress={() => handleTaskCheckboxPress(task)}
-                    disabled={updatingTaskId === task.id}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.taskCheckbox}>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          task.status === 'completed' && styles.checkboxCompleted,
-                          updatingTaskId === task.id && styles.checkboxUpdating,
-                        ]}
-                      >
-                        {task.status === 'completed' && (
-                          <Text style={styles.checkboxText}>✓</Text>
-                        )}
-                        {updatingTaskId === task.id && (
-                          <ActivityIndicator
-                            size="small"
-                            color={COLORS.white}
-                          />
-                        )}
-                      </View>
-                    </View>
-                    <View style={styles.taskContent}>
-                      <Text
-                        style={[
-                          styles.taskName,
-                          task.status === 'completed' && styles.taskNameCompleted,
-                        ]}
-                      >
-                        {task.name}
-                      </Text>
-                      <Text style={styles.taskDate}>
-                        Due: {new Date(task.dueDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.taskStatus,
-                        {
-                          backgroundColor:
-                            task.status === 'completed'
-                              ? '#f0f7f3'
-                              : task.status === 'in-progress'
-                              ? '#fef5eb'
-                              : '#ffffff',
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.taskStatusText,
-                          {
-                            color:
-                              task.status === 'completed'
-                                ? COLORS.success
-                                : task.status === 'in-progress'
-                                ? COLORS.warning
-                                : COLORS.textSecondary,
-                          },
-                        ]}
-                      >
-                        {task.status === 'completed'
-                          ? '✓ Done'
-                          : task.status === 'in-progress'
-                          ? '⟳ In Progress'
-                          : '○ Pending'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                📋 TASKS
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'logs' && styles.tabActive,
+              ]}
+              onPress={() => setActiveTab('logs')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'logs' && styles.tabTextActive,
+                ]}
+              >
+                📝 LOGS ({orderTasks.filter((t) => t.status === 'completed').length})
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Tasks Tab */}
+          {activeTab === 'tasks' && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Active Tasks</Text>
+                <TouchableOpacity
+                  style={styles.addTaskButton}
+                  onPress={() => setShowCreateTaskModal(true)}
+                >
+                  <Text style={styles.addTaskButtonText}>+ Add Task</Text>
+                </TouchableOpacity>
+              </View>
+
+              {orderTasks.filter((t) => t.status !== 'completed').length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateIcon}>✓</Text>
+                  <Text style={styles.emptyStateText}>All tasks completed!</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Great work! No pending tasks
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.taskList}>
+                  {orderTasks
+                    .filter((t) => t.status !== 'completed')
+                    .map((task) => (
+                      <TouchableOpacity
+                        key={task.id}
+                        style={styles.taskItem}
+                        onPress={() => handleTaskCheckboxPress(task)}
+                        disabled={updatingTaskId === task.id}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.taskCheckbox}>
+                          <View
+                            style={[
+                              styles.checkbox,
+                              task.status === 'in-progress' && styles.checkboxInProgress,
+                              updatingTaskId === task.id && styles.checkboxUpdating,
+                            ]}
+                          >
+                            {task.status === 'in-progress' && (
+                              <Text style={styles.checkboxInProgressText}>⟳</Text>
+                            )}
+                            {updatingTaskId === task.id && (
+                              <ActivityIndicator
+                                size="small"
+                                color={COLORS.warning}
+                              />
+                            )}
+                          </View>
+                        </View>
+                        <View style={styles.taskContent}>
+                          <Text style={styles.taskName}>{task.name}</Text>
+                          <Text style={styles.taskDate}>
+                            Due: {new Date(task.dueDate).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.taskStatus,
+                            {
+                              backgroundColor:
+                                task.status === 'in-progress'
+                                  ? '#fef5eb'
+                                  : '#ffffff',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.taskStatusText,
+                              {
+                                color:
+                                  task.status === 'in-progress'
+                                    ? COLORS.warning
+                                    : COLORS.textSecondary,
+                              },
+                            ]}
+                          >
+                            {task.status === 'in-progress'
+                              ? '⟳ In Progress'
+                              : '○ Pending'}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Logs Tab */}
+          {activeTab === 'logs' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Completed Tasks</Text>
+
+              {orderTasks.filter((t) => t.status === 'completed').length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateIcon}>📋</Text>
+                  <Text style={styles.emptyStateText}>No completed tasks</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Complete tasks to see them here
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.taskList}>
+                  {orderTasks
+                    .filter((t) => t.status === 'completed')
+                    .map((task) => (
+                      <View key={task.id} style={styles.logItem}>
+                        <Text style={styles.logCheckmark}>✓</Text>
+                        <View style={styles.logTaskContent}>
+                          <Text style={styles.logTaskName}>{task.name}</Text>
+                          <Text style={styles.logTaskDate}>
+                            Completed {new Date(task.completedAt || new Date()).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Delete Button */}
           <TouchableOpacity
@@ -504,7 +587,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     padding: scale(12),
   },
-  progressInfo: {
+  progressHeader: {
     marginBottom: scale(10),
   },
   progressValue: {
@@ -519,6 +602,12 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     marginTop: scale(2),
   },
+  progressPercent: {
+    fontSize: scale(10),
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+    marginTop: scale(8),
+  },
   progressBar: {
     height: scale(8),
     backgroundColor: COLORS.backgroundTertiary,
@@ -529,6 +618,33 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: COLORS.success,
     borderRadius: scale(4),
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    gap: scale(8),
+    marginBottom: scale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(12),
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    alignItems: 'center',
+  },
+  tabActive: {
+    borderBottomColor: COLORS.accent,
+  },
+  tabText: {
+    fontSize: scale(11),
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  tabTextActive: {
+    color: COLORS.accent,
   },
   addTaskButton: {
     backgroundColor: COLORS.textPrimary,
@@ -572,6 +688,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success,
     borderColor: COLORS.success,
   },
+  checkboxInProgress: {
+    backgroundColor: COLORS.warning,
+    borderColor: COLORS.warning,
+  },
+  checkboxInProgressText: {
+    fontSize: scale(10),
+    color: COLORS.white,
+    fontWeight: '700',
+  },
   checkboxUpdating: {
     opacity: 0.7,
   },
@@ -590,10 +715,6 @@ const styles = StyleSheet.create({
     marginBottom: scale(2),
     fontFamily: 'Georgia',
   },
-  taskNameCompleted: {
-    textDecorationLine: 'line-through',
-    color: COLORS.textSecondary,
-  },
   taskDate: {
     fontSize: scale(11),
     color: COLORS.textSecondary,
@@ -609,6 +730,35 @@ const styles = StyleSheet.create({
   taskStatusText: {
     fontSize: scale(10),
     fontWeight: '600',
+    fontFamily: 'monospace',
+  },
+  logItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: scale(10),
+    paddingVertical: scale(10),
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  logCheckmark: {
+    fontSize: scale(16),
+    color: COLORS.success,
+    fontWeight: '700',
+    marginTop: scale(2),
+  },
+  logTaskContent: {
+    flex: 1,
+  },
+  logTaskName: {
+    fontSize: scale(12),
+    color: COLORS.textSecondary,
+    fontFamily: 'Georgia',
+    textDecorationLine: 'line-through',
+    marginBottom: scale(2),
+  },
+  logTaskDate: {
+    fontSize: scale(10),
+    color: COLORS.textTertiary,
     fontFamily: 'monospace',
   },
   emptyState: {
