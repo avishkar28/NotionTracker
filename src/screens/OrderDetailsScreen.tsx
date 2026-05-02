@@ -27,11 +27,12 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
 }) => {
   const { orderId } = route.params || {};
   const { state: ordersState } = useOrders();
-  const { state: tasksState, createTask } = useTasks();
+  const { state: tasksState, createTask, updateTaskStatus } = useTasks();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [orderTasks, setOrderTasks] = useState<Task[]>([]);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (orderId) {
@@ -69,6 +70,34 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
       );
     } catch (error) {
       Alert.alert('Error', 'Failed to create task. Please try again.');
+    }
+  };
+
+  const handleTaskCheckboxPress = async (task: Task) => {
+    try {
+      setUpdatingTaskId(task.id);
+      
+      // Cycle through statuses: pending → in-progress → completed → pending
+      let nextStatus: 'pending' | 'in-progress' | 'completed';
+      switch (task.status) {
+        case 'pending':
+          nextStatus = 'in-progress';
+          break;
+        case 'in-progress':
+          nextStatus = 'completed';
+          break;
+        case 'completed':
+          nextStatus = 'pending';
+          break;
+        default:
+          nextStatus = 'pending';
+      }
+      
+      await updateTaskStatus(task.id, nextStatus);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update task. Please try again.');
+    } finally {
+      setUpdatingTaskId(null);
     }
   };
 
@@ -242,16 +271,29 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
             ) : (
               <View style={styles.taskList}>
                 {orderTasks.map((task) => (
-                  <View key={task.id} style={styles.taskItem}>
+                  <TouchableOpacity
+                    key={task.id}
+                    style={styles.taskItem}
+                    onPress={() => handleTaskCheckboxPress(task)}
+                    disabled={updatingTaskId === task.id}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.taskCheckbox}>
                       <View
                         style={[
                           styles.checkbox,
                           task.status === 'completed' && styles.checkboxCompleted,
+                          updatingTaskId === task.id && styles.checkboxUpdating,
                         ]}
                       >
                         {task.status === 'completed' && (
                           <Text style={styles.checkboxText}>✓</Text>
+                        )}
+                        {updatingTaskId === task.id && (
+                          <ActivityIndicator
+                            size="small"
+                            color={COLORS.white}
+                          />
                         )}
                       </View>
                     </View>
@@ -304,7 +346,7 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
                           : '○ Pending'}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -529,6 +571,9 @@ const styles = StyleSheet.create({
   checkboxCompleted: {
     backgroundColor: COLORS.success,
     borderColor: COLORS.success,
+  },
+  checkboxUpdating: {
+    opacity: 0.7,
   },
   checkboxText: {
     fontSize: scale(11),

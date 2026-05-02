@@ -174,9 +174,26 @@ export const TasksProvider: React.FC<{ children: ReactNode }> = ({
     status: 'pending' | 'in-progress' | 'completed'
   ): Promise<Task> => {
     try {
-      const task = await apiService.updateTaskStatus(id, status);
-      dispatch({ type: 'UPDATE_TASK', payload: task });
-      return task;
+      // Find the task in state
+      const taskToUpdate = state.tasks.find((t) => t.id === id);
+      if (!taskToUpdate) {
+        throw new Error('Task not found');
+      }
+
+      // Create updated task with new status
+      const updatedTask: Task = {
+        ...taskToUpdate,
+        status,
+        updatedAt: new Date().toISOString(),
+        completedAt:
+          status === 'completed' ? new Date().toISOString() : undefined,
+      };
+
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+      return updatedTask;
     } catch (error: any) {
       dispatch({
         type: 'SET_ERROR',
