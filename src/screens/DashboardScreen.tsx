@@ -3,35 +3,42 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  RefreshControl,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
 } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/colors';
 import { useTasks } from '../context/TasksContext';
+import { useOrders } from '../context/OrdersContext';
 import {
-  responsiveFontSize,
   responsiveSpacing,
   scale,
-  getResponsiveBorderRadius,
 } from '../utils/responsive';
 import {
   sortTasksByUrgency,
   enrichTaskWithUrgency,
 } from '../utils/taskUrgency';
 import TaskCheckboxItem from '../components/TaskCheckboxItem';
+import CreateOrderModal from '../components/CreateOrderModal';
+import { Order } from '../types';
 
-const DashboardScreen: React.FC = () => {
+type DashboardScreenProps = NativeStackScreenProps<any, 'Dashboard'>;
+
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { state: tasksState, fetchTasksToday } = useTasks();
+  const { state: ordersState, createOrder } = useOrders();
   const [refreshing, setRefreshing] = useState(false);
   const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(
     new Set()
   );
   const [localTasks, setLocalTasks] = useState(tasksState.tasks);
+  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
+  const [creatingOrder, setCreatingOrder] = useState(false);
   const [localStats, setLocalStats] = useState({
-    orders: 8,
-    pending: 4,
+    orders: 0,
+    pending: 0,
     done: 0,
   });
 
@@ -52,8 +59,39 @@ const DashboardScreen: React.FC = () => {
       ...prev,
       pending: pendingCount,
       done: doneCount,
+      orders: ordersState.orders.length,
     }));
-  }, [tasksState.tasks]);
+  }, [tasksState.tasks, ordersState.orders]);
+
+  const handleCreateOrderPress = () => {
+    setShowCreateOrderModal(true);
+  };
+
+  const handleCreateOrder = async (orderData: any) => {
+    setCreatingOrder(true);
+    try {
+      const newOrder = await createOrder(orderData);
+      setShowCreateOrderModal(false);
+      
+      // Show success message
+      Alert.alert('✓ Order Created!', `${orderData.vendorName} has been added.`, [
+        {
+          text: 'View Order',
+          onPress: () => {
+            navigation.navigate('OrderDetails', { orderId: newOrder.id });
+          },
+        },
+        {
+          text: 'Done',
+          onPress: () => {},
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create order. Please try again.');
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -112,97 +150,109 @@ const DashboardScreen: React.FC = () => {
   const dateStr = `${dayName}, ${today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Today</Text>
-          <Text style={styles.date}>{dateStr}</Text>
+    <>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Today</Text>
+            <Text style={styles.date}>{dateStr}</Text>
+          </View>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton}>
+              <Text style={styles.iconText}>🔍</Text>
+            </TouchableOpacity>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>A</Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.iconText}>🔍</Text>
+
+        {/* Stats Cards */}
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, styles.statCardOrders]}>
+            <Text style={styles.statValue}>{localStats.orders}</Text>
+            <Text style={styles.statLabel}>Orders</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardPending]}>
+            <Text style={[styles.statValue, { color: COLORS.warning }]}>
+              {localStats.pending}
+            </Text>
+            <Text style={styles.statLabel}>Pending</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardDone]}>
+            <Text style={[styles.statValue, { color: COLORS.success }]}>
+              {localStats.done}
+            </Text>
+            <Text style={styles.statLabel}>Done</Text>
+          </View>
+        </View>
+
+        {/* Scrollable Content */}
+        <ScrollView
+          style={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={COLORS.accent}
+            />
+          }
+        >
+          {/* Today's Tasks Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Today's Tasks</Text>
+              <Text style={styles.taskCount}>{tasksToday.length} tasks</Text>
+            </View>
+
+            {tasksToday.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No tasks today</Text>
+              </View>
+            ) : (
+              <View style={styles.tasksList}>
+                {tasksToday.map((task) => (
+                  <TaskCheckboxItem
+                    key={task.id}
+                    task={task}
+                    onPress={handleTaskPress}
+                    onCheckboxPress={handleCheckboxPress}
+                    isCompleting={completingTaskIds.has(task.id)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Upcoming Tasks Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
+              <Text style={styles.collapseIcon}>▾</Text>
+            </View>
+            <View style={styles.upcomingEmpty}>
+              <Text style={styles.upcomingEmptyText}>No upcoming tasks</Text>
+            </View>
+          </View>
+
+          {/* New Order Button */}
+          <TouchableOpacity
+            style={styles.newOrderButton}
+            onPress={handleCreateOrderPress}
+          >
+            <Text style={styles.newOrderButtonText}>+ New Order</Text>
           </TouchableOpacity>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>A</Text>
-          </View>
-        </View>
+        </ScrollView>
       </View>
 
-      {/* Stats Cards */}
-      <View style={styles.statsGrid}>
-        <View style={[styles.statCard, styles.statCardOrders]}>
-          <Text style={styles.statValue}>{localStats.orders}</Text>
-          <Text style={styles.statLabel}>Orders</Text>
-        </View>
-        <View style={[styles.statCard, styles.statCardPending]}>
-          <Text style={[styles.statValue, { color: COLORS.warning }]}>
-            {localStats.pending}
-          </Text>
-          <Text style={styles.statLabel}>Pending</Text>
-        </View>
-        <View style={[styles.statCard, styles.statCardDone]}>
-          <Text style={[styles.statValue, { color: COLORS.success }]}>
-            {localStats.done}
-          </Text>
-          <Text style={styles.statLabel}>Done</Text>
-        </View>
-      </View>
-
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={COLORS.accent}
-          />
-        }
-      >
-        {/* Today's Tasks Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Tasks</Text>
-            <Text style={styles.taskCount}>{tasksToday.length} tasks</Text>
-          </View>
-
-          {tasksToday.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No tasks today</Text>
-            </View>
-          ) : (
-            <View style={styles.tasksList}>
-              {tasksToday.map((task) => (
-                <TaskCheckboxItem
-                  key={task.id}
-                  task={task}
-                  onPress={handleTaskPress}
-                  onCheckboxPress={handleCheckboxPress}
-                  isCompleting={completingTaskIds.has(task.id)}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Upcoming Tasks Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
-            <Text style={styles.collapseIcon}>▾</Text>
-          </View>
-          <View style={styles.upcomingEmpty}>
-            <Text style={styles.upcomingEmptyText}>No upcoming tasks</Text>
-          </View>
-        </View>
-
-        {/* New Order Button */}
-        <TouchableOpacity style={styles.newOrderButton}>
-          <Text style={styles.newOrderButtonText}>+ New Order</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+      {/* Create Order Modal */}
+      <CreateOrderModal
+        visible={showCreateOrderModal}
+        onClose={() => setShowCreateOrderModal(false)}
+        onCreateOrder={handleCreateOrder}
+      />
+    </>
   );
 };
 

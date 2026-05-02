@@ -3,10 +3,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabParamList } from '../types';
 import { COLORS } from '../constants/colors';
+import { scale } from '../utils/responsive';
 import DashboardScreen from '../screens/DashboardScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import TasksScreen from '../screens/TasksScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import OrderDetailsScreen from '../screens/OrderDetailsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const OrdersStack = createNativeStackNavigator();
@@ -36,10 +38,35 @@ const TasksNavigator = () => (
 const DashboardNavigator = () => (
   <DashboardStack.Navigator
     screenOptions={{
-      headerShown: false,
+      headerShown: true,
+      headerStyle: {
+        backgroundColor: COLORS.backgroundSecondary,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+      },
+      headerTitleStyle: {
+        color: COLORS.textPrimary,
+        fontFamily: 'Georgia',
+        fontSize: scale(18),
+        fontWeight: '700',
+      },
+      headerTintColor: COLORS.accent,
     }}
   >
-    <DashboardStack.Screen name="Today" component={DashboardScreen} />
+    <DashboardStack.Screen 
+      name="Dashboard" 
+      component={DashboardScreen}
+      options={{
+        headerShown: false,
+      }}
+    />
+    <DashboardStack.Screen
+      name="OrderDetails"
+      component={OrderDetailsScreen}
+      options={({ route }: any) => ({
+        title: route.params?.vendorName || 'Order Details',
+      })}
+    />
   </DashboardStack.Navigator>
 );
 

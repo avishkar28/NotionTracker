@@ -27,8 +27,33 @@ interface OrdersContextType {
   deleteOrder: (id: string) => Promise<void>;
 }
 
+const mockOrders: Order[] = [
+  {
+    id: '1',
+    vendorName: 'John Designs',
+    description: 'Logo and branding package',
+    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    priority: 'high',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    taskCount: 3,
+    completedTaskCount: 1,
+  },
+  {
+    id: '2',
+    vendorName: 'Sarah Marketing',
+    description: 'Social media content creation',
+    deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    priority: 'medium',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    taskCount: 5,
+    completedTaskCount: 2,
+  },
+];
+
 const initialState: OrdersState = {
-  orders: [],
+  orders: mockOrders,
   loading: false,
   error: null,
 };
@@ -84,9 +109,23 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
 
   const createOrder = async (data: any): Promise<Order> => {
     try {
-      const order = await apiService.createOrder(data);
-      dispatch({ type: 'ADD_ORDER', payload: order });
-      return order;
+      const newOrder: Order = {
+        id: `order_${Date.now()}`,
+        vendorName: data.vendorName,
+        description: data.description,
+        deadline: data.deadline,
+        priority: data.priority,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        taskCount: 0,
+        completedTaskCount: 0,
+      };
+      
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      dispatch({ type: 'ADD_ORDER', payload: newOrder });
+      return newOrder;
     } catch (error: any) {
       dispatch({
         type: 'SET_ERROR',
