@@ -12,7 +12,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/colors';
 import { scale } from '../utils/responsive';
 import { useOrders } from '../context/OrdersContext';
-import { Order } from '../types';
+import { useTasks } from '../context/TasksContext';
+import { Order, Task } from '../types';
+import CreateTaskModal from '../components/CreateTaskModal';
 
 type OrderDetailsScreenProps = NativeStackScreenProps<
   any,
@@ -25,8 +27,11 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
 }) => {
   const { orderId } = route.params || {};
   const { state: ordersState } = useOrders();
+  const { state: tasksState, createTask } = useTasks();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [orderTasks, setOrderTasks] = useState<Task[]>([]);
 
   useEffect(() => {
     if (orderId) {
@@ -39,6 +44,12 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
     setLoading(false);
   }, [orderId, ordersState.orders]);
 
+  // Filter tasks for this order
+  useEffect(() => {
+    const tasksForOrder = tasksState.tasks.filter((t) => t.orderId === orderId);
+    setOrderTasks(tasksForOrder);
+  }, [tasksState.tasks, orderId]);
+
   useEffect(() => {
     if (order) {
       navigation.setOptions({
@@ -46,6 +57,20 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
       });
     }
   }, [order, navigation]);
+
+  const handleCreateTask = async (taskData: any) => {
+    try {
+      await createTask(taskData);
+      setShowCreateTaskModal(false);
+      
+      Alert.alert(
+        '✓ Task Created!',
+        `"${taskData.name}" has been added to this order.`
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create task. Please try again.');
+    }
+  };
 
   if (loading) {
     return (
@@ -120,127 +145,207 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
       : `${daysUntil} days left`;
 
   const priorityBadgeStyle = getPriorityBadgeStyle(order.priority);
+  const completedCount = orderTasks.filter((t) => t.status === 'completed').length;
+  const totalCount = orderTasks.length;
+  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.content}>
-        {/* Order Header */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerInfo}>
-              <Text style={styles.vendorName}>{order.vendorName}</Text>
-              <Text style={styles.description}>{order.description}</Text>
-            </View>
-          </View>
-
-          {/* Deadline & Priority Row */}
-          <View style={styles.detailsRow}>
-            <View style={styles.deadlineBox}>
-              <Text style={styles.detailLabel}>Deadline</Text>
-              <Text style={styles.detailValue}>
-                {deadlineDate.toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </Text>
-              <Text style={styles.deadlineStatus}>{deadlineText}</Text>
+    <>
+      <View style={styles.container}>
+        <ScrollView style={styles.content}>
+          {/* Order Header */}
+          <View style={styles.headerCard}>
+            <View style={styles.headerTop}>
+              <View style={styles.headerInfo}>
+                <Text style={styles.vendorName}>{order.vendorName}</Text>
+                <Text style={styles.description}>{order.description}</Text>
+              </View>
             </View>
 
-            <View
-              style={[
-                styles.priorityBadge,
-                {
-                  backgroundColor: priorityBadgeStyle.backgroundColor,
-                  borderColor: priorityBadgeStyle.borderColor,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.priorityText,
-                  { color: getPriorityColor(order.priority) },
-                ]}
-              >
-                {order.priority.toUpperCase()}
-              </Text>
-            </View>
-          </View>
-        </View>
+            {/* Deadline & Priority Row */}
+            <View style={styles.detailsRow}>
+              <View style={styles.deadlineBox}>
+                <Text style={styles.detailLabel}>Deadline</Text>
+                <Text style={styles.detailValue}>
+                  {deadlineDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </Text>
+                <Text style={styles.deadlineStatus}>{deadlineText}</Text>
+              </View>
 
-        {/* Progress Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Progress</Text>
-          <View style={styles.progressCard}>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressValue}>
-                {order.completedTaskCount || 0}/{order.taskCount || 0}
-              </Text>
-              <Text style={styles.progressLabel}>Tasks Completed</Text>
-            </View>
-            <View style={styles.progressBar}>
               <View
                 style={[
-                  styles.progressFill,
+                  styles.priorityBadge,
                   {
-                    width:
-                      `${((order.completedTaskCount || 0) / Math.max(order.taskCount || 1, 1)) * 100}%`,
+                    backgroundColor: priorityBadgeStyle.backgroundColor,
+                    borderColor: priorityBadgeStyle.borderColor,
                   },
                 ]}
-              />
+              >
+                <Text
+                  style={[
+                    styles.priorityText,
+                    { color: getPriorityColor(order.priority) },
+                  ]}
+                >
+                  {order.priority.toUpperCase()}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Tasks Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Tasks</Text>
-            <TouchableOpacity style={styles.addTaskButton}>
-              <Text style={styles.addTaskButtonText}>+ Add Task</Text>
-            </TouchableOpacity>
+          {/* Progress Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Progress</Text>
+            <View style={styles.progressCard}>
+              <View style={styles.progressInfo}>
+                <Text style={styles.progressValue}>
+                  {completedCount}/{totalCount}
+                </Text>
+                <Text style={styles.progressLabel}>Tasks Completed</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${progressPercentage}%`,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
           </View>
 
-          {(order.taskCount || 0) === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateIcon}>📋</Text>
-              <Text style={styles.emptyStateText}>No tasks yet</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Create tasks to track work for this order
-              </Text>
+          {/* Tasks Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Tasks</Text>
+              <TouchableOpacity
+                style={styles.addTaskButton}
+                onPress={() => setShowCreateTaskModal(true)}
+              >
+                <Text style={styles.addTaskButtonText}>+ Add Task</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
-            <View style={styles.taskList}>
-              {/* Tasks would be rendered here */}
-            </View>
-          )}
-        </View>
 
-        {/* Delete Button */}
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => {
-            Alert.alert(
-              'Delete Order',
-              'Are you sure you want to delete this order?',
-              [
-                { text: 'Cancel', onPress: () => {} },
-                {
-                  text: 'Delete',
-                  onPress: () => {
-                    navigation.goBack();
+            {totalCount === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateIcon}>📋</Text>
+                <Text style={styles.emptyStateText}>No tasks yet</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Create tasks to track work for this order
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.taskList}>
+                {orderTasks.map((task) => (
+                  <View key={task.id} style={styles.taskItem}>
+                    <View style={styles.taskCheckbox}>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          task.status === 'completed' && styles.checkboxCompleted,
+                        ]}
+                      >
+                        {task.status === 'completed' && (
+                          <Text style={styles.checkboxText}>✓</Text>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.taskContent}>
+                      <Text
+                        style={[
+                          styles.taskName,
+                          task.status === 'completed' && styles.taskNameCompleted,
+                        ]}
+                      >
+                        {task.name}
+                      </Text>
+                      <Text style={styles.taskDate}>
+                        Due: {new Date(task.dueDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.taskStatus,
+                        {
+                          backgroundColor:
+                            task.status === 'completed'
+                              ? '#f0f7f3'
+                              : task.status === 'in-progress'
+                              ? '#fef5eb'
+                              : '#ffffff',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.taskStatusText,
+                          {
+                            color:
+                              task.status === 'completed'
+                                ? COLORS.success
+                                : task.status === 'in-progress'
+                                ? COLORS.warning
+                                : COLORS.textSecondary,
+                          },
+                        ]}
+                      >
+                        {task.status === 'completed'
+                          ? '✓ Done'
+                          : task.status === 'in-progress'
+                          ? '⟳ In Progress'
+                          : '○ Pending'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Delete Button */}
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => {
+              Alert.alert(
+                'Delete Order',
+                'Are you sure you want to delete this order?',
+                [
+                  { text: 'Cancel', onPress: () => {} },
+                  {
+                    text: 'Delete',
+                    onPress: () => {
+                      navigation.goBack();
+                    },
+                    style: 'destructive',
                   },
-                  style: 'destructive',
-                },
-              ]
-            );
-          }}
-        >
-          <Text style={styles.deleteButtonText}>Delete Order</Text>
-        </TouchableOpacity>
+                ]
+              );
+            }}
+          >
+            <Text style={styles.deleteButtonText}>Delete Order</Text>
+          </TouchableOpacity>
 
-        <View style={{ height: scale(20) }} />
-      </ScrollView>
-    </View>
+          <View style={{ height: scale(20) }} />
+        </ScrollView>
+      </View>
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        visible={showCreateTaskModal}
+        orderId={orderId}
+        orderName={order.vendorName}
+        onClose={() => setShowCreateTaskModal(false)}
+        onCreateTask={handleCreateTask}
+      />
+    </>
   );
 };
 
@@ -397,6 +502,69 @@ const styles = StyleSheet.create({
   },
   taskList: {
     gap: scale(8),
+  },
+  taskItem: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: scale(12),
+    gap: scale(10),
+  },
+  taskCheckbox: {
+    justifyContent: 'center',
+  },
+  checkbox: {
+    width: scale(18),
+    height: scale(18),
+    borderRadius: scale(3),
+    borderWidth: 1.5,
+    borderColor: '#ddd9d3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  checkboxCompleted: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  checkboxText: {
+    fontSize: scale(11),
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskName: {
+    fontSize: scale(13),
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: scale(2),
+    fontFamily: 'Georgia',
+  },
+  taskNameCompleted: {
+    textDecorationLine: 'line-through',
+    color: COLORS.textSecondary,
+  },
+  taskDate: {
+    fontSize: scale(11),
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  taskStatus: {
+    borderRadius: scale(4),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  taskStatusText: {
+    fontSize: scale(10),
+    fontWeight: '600',
+    fontFamily: 'monospace',
   },
   emptyState: {
     backgroundColor: COLORS.backgroundSecondary,
