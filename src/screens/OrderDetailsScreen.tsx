@@ -405,7 +405,10 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
           {/* Logs Tab */}
           {activeTab === 'logs' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Completed Tasks</Text>
+              <View style={styles.logsHeader}>
+                <Text style={styles.sectionTitle}>📝 Logs (Task History)</Text>
+                <Text style={styles.readOnlyLabel}>Read-only</Text>
+              </View>
 
               {orderTasks.filter((t) => t.status === 'completed').length === 0 ? (
                 <View style={styles.emptyState}>
@@ -416,18 +419,52 @@ const OrderDetailsScreen: React.FC<OrderDetailsScreenProps> = ({
                   </Text>
                 </View>
               ) : (
-                <View style={styles.taskList}>
+                <View style={styles.logsContainer}>
                   {orderTasks
                     .filter((t) => t.status === 'completed')
-                    .map((task) => (
+                    .sort((a, b) => {
+                      // Sort by most recently completed first
+                      const aDate = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+                      const bDate = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+                      return bDate - aDate;
+                    })
+                    .map((task, index) => (
                       <View key={task.id} style={styles.logItem}>
-                        <Text style={styles.logCheckmark}>✓</Text>
-                        <View style={styles.logTaskContent}>
-                          <Text style={styles.logTaskName}>{task.name}</Text>
-                          <Text style={styles.logTaskDate}>
-                            Completed {new Date(task.completedAt || new Date()).toLocaleDateString()}
+                        <View style={styles.logItemHeader}>
+                          <Text style={styles.logCheckmark}>✅</Text>
+                          <View style={styles.logTaskInfo}>
+                            <Text style={styles.logTaskName}>{task.name}</Text>
+                            <Text style={styles.logTaskDueDate}>
+                              Due: {new Date(task.dueDate).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.logTimestamp}>
+                          <Text style={styles.logTimestampLabel}>Completed</Text>
+                          <Text style={styles.logCompletionDate}>
+                            {task.completedAt
+                              ? new Date(task.completedAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : 'N/A'}
+                          </Text>
+                          <Text style={styles.logCompletionTime}>
+                            {task.completedAt
+                              ? new Date(task.completedAt).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                })
+                              : ''}
                           </Text>
                         </View>
+                        {index < orderTasks.filter((t) => t.status === 'completed').length - 1 && (
+                          <View style={styles.logDivider} />
+                        )}
                       </View>
                     ))}
                 </View>
@@ -733,33 +770,90 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   logItem: {
+    paddingVertical: scale(14),
+  },
+  logItemHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: scale(10),
-    paddingVertical: scale(10),
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    marginBottom: scale(10),
   },
   logCheckmark: {
-    fontSize: scale(16),
+    fontSize: scale(18),
     color: COLORS.success,
     fontWeight: '700',
-    marginTop: scale(2),
+    marginTop: scale(0),
+    flexShrink: 0,
   },
-  logTaskContent: {
+  logTaskInfo: {
     flex: 1,
   },
   logTaskName: {
-    fontSize: scale(12),
-    color: COLORS.textSecondary,
+    fontSize: scale(13),
+    fontWeight: '600',
+    color: COLORS.textPrimary,
     fontFamily: 'Georgia',
-    textDecorationLine: 'line-through',
     marginBottom: scale(2),
   },
-  logTaskDate: {
+  logTaskDueDate: {
     fontSize: scale(10),
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  logTimestamp: {
+    backgroundColor: '#f0f7f3',
+    borderRadius: scale(6),
+    padding: scale(8),
+    borderWidth: 1,
+    borderColor: '#c8e6d5',
+    marginLeft: scale(28),
+  },
+  logTimestampLabel: {
+    fontSize: scale(9),
+    color: COLORS.success,
+    fontFamily: 'monospace',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: scale(2),
+  },
+  logCompletionDate: {
+    fontSize: scale(12),
+    fontWeight: '600',
+    color: COLORS.success,
+    fontFamily: 'Georgia',
+    marginBottom: scale(1),
+  },
+  logCompletionTime: {
+    fontSize: scale(10),
+    color: COLORS.success,
+    fontFamily: 'monospace',
+  },
+  logDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: scale(8),
+  },
+  logsContainer: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: scale(8),
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: scale(12),
+  },
+  logsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: scale(10),
+  },
+  readOnlyLabel: {
+    fontSize: scale(9),
     color: COLORS.textTertiary,
     fontFamily: 'monospace',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   emptyState: {
     backgroundColor: COLORS.backgroundSecondary,

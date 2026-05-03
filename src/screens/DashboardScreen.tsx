@@ -435,27 +435,59 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
           {/* Completed Tasks / Logs Section */}
           {tasksState.tasks.filter((t) => t.status === 'completed').length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Completed (Logs) ✓ {tasksState.tasks.filter((t) => t.status === 'completed').length}
-              </Text>
+              <View style={styles.logsHeader}>
+                <Text style={styles.sectionTitle}>
+                  📝 Completed (Logs)
+                </Text>
+                <Text style={styles.readOnlyLabel}>
+                  {tasksState.tasks.filter((t) => t.status === 'completed').length}
+                </Text>
+              </View>
               <View style={styles.logsContent}>
                 {tasksState.tasks
                   .filter((t) => t.status === 'completed')
+                  .sort((a, b) => {
+                    const aDate = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+                    const bDate = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+                    return bDate - aDate;
+                  })
                   .slice(0, 5)
-                  .map((task) => (
-                    <View key={task.id} style={styles.logItem}>
-                      <Text style={styles.logCheckmark}>✓</Text>
-                      <View style={styles.logTaskInfo}>
-                        <Text style={styles.logTaskName}>{task.name}</Text>
-                        <Text style={styles.logTaskDate}>
-                          Completed {new Date(task.completedAt || new Date()).toLocaleDateString()}
+                  .map((task, index) => (
+                    <View key={task.id} style={styles.dashboardLogItem}>
+                      <View style={styles.dashboardLogItemTop}>
+                        <Text style={styles.logCheckmark}>✓</Text>
+                        <View style={styles.logTaskInfo}>
+                          <Text style={styles.logTaskName}>{task.name}</Text>
+                          <Text style={styles.logTaskOrder}>{task.orderName || 'No Order'}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.dashboardLogTimestamp}>
+                        <Text style={styles.dashboardLogDate}>
+                          {task.completedAt
+                            ? new Date(task.completedAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })
+                            : 'N/A'}
+                        </Text>
+                        <Text style={styles.dashboardLogTime}>
+                          {task.completedAt
+                            ? new Date(task.completedAt).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true,
+                              })
+                            : ''}
                         </Text>
                       </View>
+                      {index < Math.min(5, tasksState.tasks.filter((t) => t.status === 'completed').length) - 1 && (
+                        <View style={styles.logDivider} />
+                      )}
                     </View>
                   ))}
                 {tasksState.tasks.filter((t) => t.status === 'completed').length > 5 && (
                   <Text style={styles.logsMoreText}>
-                    +{tasksState.tasks.filter((t) => t.status === 'completed').length - 5} more
+                    +{tasksState.tasks.filter((t) => t.status === 'completed').length - 5} more completed
                   </Text>
                 )}
               </View>
@@ -708,50 +740,89 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   logsContent: {
-    backgroundColor: '#f9f8f7',
+    backgroundColor: '#f0f7f3',
     borderRadius: scale(8),
     borderWidth: 1,
-    borderColor: '#e8e5e0',
+    borderColor: '#c8e6d5',
     padding: scale(12),
-    gap: scale(8),
+    gap: scale(0),
     marginTop: scale(12),
   },
-  logItem: {
+  logsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: scale(10),
+  },
+  readOnlyLabel: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: COLORS.success,
+    fontFamily: 'Georgia',
+    backgroundColor: 'rgba(55, 161, 105, 0.1)',
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+    borderRadius: scale(4),
+  },
+  dashboardLogItem: {
+    paddingVertical: scale(10),
+  },
+  dashboardLogItemTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: scale(10),
-    paddingVertical: scale(8),
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    marginBottom: scale(6),
   },
   logCheckmark: {
-    fontSize: scale(16),
+    fontSize: scale(18),
     color: COLORS.success,
     fontWeight: '700',
-    marginTop: scale(2),
+    marginTop: scale(0),
+    flexShrink: 0,
   },
   logTaskInfo: {
     flex: 1,
   },
   logTaskName: {
-    fontSize: scale(11),
-    color: COLORS.textSecondary,
+    fontSize: scale(12),
+    color: COLORS.textPrimary,
     fontFamily: 'Georgia',
-    textDecorationLine: 'line-through',
+    fontWeight: '600',
     marginBottom: scale(2),
   },
-  logTaskDate: {
-    fontSize: scale(9),
-    color: COLORS.textTertiary,
+  logTaskOrder: {
+    fontSize: scale(10),
+    color: COLORS.textSecondary,
     fontFamily: 'monospace',
+  },
+  dashboardLogTimestamp: {
+    marginLeft: scale(28),
+    marginBottom: scale(6),
+  },
+  dashboardLogDate: {
+    fontSize: scale(11),
+    fontWeight: '600',
+    color: COLORS.success,
+    fontFamily: 'Georgia',
+  },
+  dashboardLogTime: {
+    fontSize: scale(9),
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  logDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: scale(8),
   },
   logsMoreText: {
     fontSize: scale(10),
-    color: COLORS.accent,
+    color: COLORS.success,
     fontFamily: 'monospace',
     fontWeight: '600',
     textAlign: 'center',
-    paddingVertical: scale(4),
+    paddingVertical: scale(8),
+    marginTop: scale(4),
   },
 });
 
