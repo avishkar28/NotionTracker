@@ -1,6 +1,6 @@
-import React, { createContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useReducer, ReactNode, useEffect } from 'react';
 import { Task } from '../types';
-import { apiService } from '../services/api';
+import { storageService } from '../services/storage';
 
 interface TasksState {
   tasks: Task[];
@@ -32,35 +32,8 @@ interface TasksContextType {
   deleteTask: (id: string) => Promise<void>;
 }
 
-const mockTasks: Task[] = [
-  {
-    id: 'task_1',
-    name: 'Design mockup',
-    orderId: '1',
-    orderName: 'John Designs',
-    status: 'pending',
-    assignedDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    priority: 'high',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'task_2',
-    name: 'Review with client',
-    orderId: '1',
-    orderName: 'John Designs',
-    status: 'in-progress',
-    assignedDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    priority: 'medium',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
 const initialState: TasksState = {
-  tasks: mockTasks,
+  tasks: [],
   loading: false,
   error: null,
 };
@@ -101,10 +74,28 @@ export const TasksProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(tasksReducer, initialState);
 
+  // Load tasks from storage on mount
+  useEffect(() => {
+    loadTasksFromStorage();
+  }, []);
+
+  const loadTasksFromStorage = async () => {
+    try {
+      console.log('📂 Loading tasks from local storage...');
+      const tasks = await storageService.getTasks();
+      dispatch({ type: 'SET_TASKS', payload: tasks });
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+    }
+  };
+
   const fetchTasks = async () => {
     dispatch({ type: 'SET_LOADING' });
     try {
-      const tasks = await apiService.getTasks();
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const tasks = await storageService.getTasks();
+      console.log('🔄 Tasks refreshed from storage:', tasks.length);
       dispatch({ type: 'SET_TASKS', payload: tasks });
     } catch (error: any) {
       dispatch({
@@ -117,7 +108,14 @@ export const TasksProvider: React.FC<{ children: ReactNode }> = ({
   const fetchTasksToday = async () => {
     dispatch({ type: 'SET_LOADING' });
     try {
-      const tasks = await apiService.getTasksToday();
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const tasks = await storageService.getTasks();
+      const today = new Date().toISOString().split('T')[0];
+      const todayTasks = tasks.filter(
+        (t) => t.assignedDate?.split('T')[0] === today
+      );
+      console.log('🔄 Today tasks refreshed:', todayTasks.length);
       dispatch({ type: 'SET_TASKS', payload: tasks });
     } catch (error: any) {
       dispatch({
@@ -131,11 +129,12 @@ export const TasksProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const newTask: Task = {
         id: `task_${Date.now()}`,
-        name: data.name,
+        name: data.taskName,
         orderId: data.orderId,
+        orderName: data.orderName,
         status: 'pending',
-        assignedDate: data.assignedDate,
-        dueDate: data.dueDate,
+        assignedDate: new Date().toISOString(),
+        dueDate: data.dueDate?.toISOString?.() || data.dueDate,
         priority: 'medium',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -144,10 +143,134 @@ export const TasksProvider: React.FC<{ children: ReactNode }> = ({
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 600));
 
+      // Save to storage
+      await storageService.addTask(newTask);
+      console.log('✅ Task created and saved:', newTask.id);
+
       dispatch({ type: 'ADD_TASK', payload: newTask });
       return newTask;
     } catch (error: any) {
+      const errorMsg = error.message || 'Failed to create task';
+      console.error('❌ Create task error:', errorMsg);
       dispatch({
+        type: 'SET_ERROR',
+        payload: errorMsg,
+      });
+      throw error;
+    }
+  };
+
+  const updateTask = async (id: string, data: any): Promise<Task> => {
+    try {
+      const tasks = await storageService.getTasks();
+      const task = tasks.find((t) => t.id === id);
+
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      const updatedTask: Task = {
+        ...task,
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await storageService.updateTask(id, data);
+      console.log('✅ Task updated:', id);
+
+      dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+      return updatedTask;
+    } catch (error: any) {
+      dispatch({
+        type: 'SET_ERROR',
+        payload: error.message || 'Failed to update task',
+      });
+      throw error;
+    }
+  };
+
+  const updateTaskStatus = async (
+    id: string,
+    status: 'pending' | 'in-progress' | 'completed'
+  ): Promise<Task> => {
+    try {
+      const tasks = await storageService.getTasks();
+      const task = tasks.find((t) => t.id === id);
+
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      const completedAt =
+        status === 'completed' ? new Date().toISOString() : undefined;
+
+      const updatedTask: Task = {
+        ...task,
+        status,
+        completedAt,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      // Save to storage
+      await storageService.updateTask(id, {
+        status,
+        completedAt,
+      });
+      console.log('✅ Task status updated:', id, '→', status);
+
+      dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+      return updatedTask;
+    } catch (error: any) {
+      const errorMsg = error.message || 'Failed to update task status';
+      console.error('❌ Update task status error:', errorMsg);
+      dispatch({
+        type: 'SET_ERROR',
+        payload: errorMsg,
+      });
+      throw error;
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    try {
+      await storageService.deleteTask(id);
+      console.log('✅ Task deleted:', id);
+      dispatch({ type: 'DELETE_TASK', payload: id });
+    } catch (error: any) {
+      const errorMsg = error.message || 'Failed to delete task';
+      dispatch({
+        type: 'SET_ERROR',
+        payload: errorMsg,
+      });
+      throw error;
+    }
+  };
+
+  const value: TasksContextType = {
+    state,
+    fetchTasks,
+    fetchTasksToday,
+    createTask,
+    updateTask,
+    updateTaskStatus,
+    deleteTask,
+  };
+
+  return (
+    <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
+  );
+};
+
+export const useTasks = (): TasksContextType => {
+  const context = React.useContext(TasksContext);
+  if (context === undefined) {
+    throw new Error('useTasks must be used within TasksProvider');
+  }
+  return context;
+};
         type: 'SET_ERROR',
         payload: error.message || 'Failed to create task',
       });

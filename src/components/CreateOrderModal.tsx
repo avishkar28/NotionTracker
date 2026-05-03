@@ -58,8 +58,14 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
     if (!description.trim()) {
       newErrors.description = 'Description is required';
     }
-    if (deadline < new Date()) {
-      newErrors.deadline = 'Deadline must be in the future';
+
+    // Validate deadline is today
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const deadlineStart = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+
+    if (deadlineStart.getTime() !== todayStart.getTime()) {
+      newErrors.deadline = '❌ Order deadline must be today only';
     }
 
     setErrors(newErrors);

@@ -116,4 +116,7 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // AsyncStorage dependency
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 }

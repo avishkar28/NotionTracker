@@ -1,6 +1,6 @@
-import React, { createContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useReducer, ReactNode, useEffect } from 'react';
 import { Order } from '../types';
-import { apiService } from '../services/api';
+import { storageService } from '../services/storage';
 
 interface OrdersState {
   orders: Order[];
@@ -27,33 +27,8 @@ interface OrdersContextType {
   deleteOrder: (id: string) => Promise<void>;
 }
 
-const mockOrders: Order[] = [
-  {
-    id: '1',
-    vendorName: 'John Designs',
-    description: 'Logo and branding package',
-    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    priority: 'high',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    taskCount: 3,
-    completedTaskCount: 1,
-  },
-  {
-    id: '2',
-    vendorName: 'Sarah Marketing',
-    description: 'Social media content creation',
-    deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    priority: 'medium',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    taskCount: 5,
-    completedTaskCount: 2,
-  },
-];
-
 const initialState: OrdersState = {
-  orders: mockOrders,
+  orders: [],
   loading: false,
   error: null,
 };
@@ -94,10 +69,28 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(ordersReducer, initialState);
 
+  // Load orders from storage on mount
+  useEffect(() => {
+    loadOrdersFromStorage();
+  }, []);
+
+  const loadOrdersFromStorage = async () => {
+    try {
+      console.log('📂 Loading orders from local storage...');
+      const orders = await storageService.getOrders();
+      dispatch({ type: 'SET_ORDERS', payload: orders });
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+    }
+  };
+
   const fetchOrders = async () => {
     dispatch({ type: 'SET_LOADING' });
     try {
-      const orders = await apiService.getOrders();
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const orders = await storageService.getOrders();
+      console.log('🔄 Orders refreshed from storage:', orders.length);
       dispatch({ type: 'SET_ORDERS', payload: orders });
     } catch (error: any) {
       dispatch({
@@ -109,6 +102,15 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
 
   const createOrder = async (data: any): Promise<Order> => {
     try {
+      // Validate deadline is today
+      const today = new Date();
+      const todayString = today.toISOString().split('T')[0];
+      const deadlineString = data.deadline.toISOString?.().split('T')[0] || data.deadline;
+      
+      if (deadlineString !== todayString) {
+        throw new Error('❌ Order deadline must be today');
+      }
+
       const newOrder: Order = {
         id: `order_${Date.now()}`,
         vendorName: data.vendorName,
@@ -121,15 +123,21 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
         completedTaskCount: 0,
       };
       
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Simulate API delay (600ms)
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      
+      // Save to storage
+      await storageService.addOrder(newOrder);
+      console.log('✅ Order created and saved:', newOrder.id);
       
       dispatch({ type: 'ADD_ORDER', payload: newOrder });
       return newOrder;
     } catch (error: any) {
+      const errorMsg = error.message || 'Failed to create order';
+      console.error('❌ Create order error:', errorMsg);
       dispatch({
         type: 'SET_ERROR',
-        payload: error.message || 'Failed to create order',
+        payload: errorMsg,
       });
       throw error;
     }
@@ -137,9 +145,24 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateOrder = async (id: string, data: any): Promise<Order> => {
     try {
-      const order = await apiService.updateOrder(id, data);
-      dispatch({ type: 'UPDATE_ORDER', payload: order });
-      return order;
+      const orders = await storageService.getOrders();
+      const order = orders.find((o) => o.id === id);
+      
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const updatedOrder: Order = {
+        ...order,
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await storageService.updateOrder(id, data);
+      console.log('✅ Order updated:', id);
+      
+      dispatch({ type: 'UPDATE_ORDER', payload: updatedOrder });
+      return updatedOrder;
     } catch (error: any) {
       dispatch({
         type: 'SET_ERROR',
@@ -151,12 +174,14 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteOrder = async (id: string) => {
     try {
-      await apiService.deleteOrder(id);
+      await storageService.deleteOrder(id);
+      console.log('✅ Order deleted:', id);
       dispatch({ type: 'DELETE_ORDER', payload: id });
     } catch (error: any) {
+      const errorMsg = error.message || 'Failed to delete order';
       dispatch({
         type: 'SET_ERROR',
-        payload: error.message || 'Failed to delete order',
+        payload: errorMsg,
       });
       throw error;
     }
@@ -175,10 +200,10 @@ export const OrdersProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-export const useOrders = () => {
+export const useOrders = (): OrdersContextType => {
   const context = React.useContext(OrdersContext);
-  if (!context) {
-    throw new Error('useOrders must be used within an OrdersProvider');
+  if (context === undefined) {
+    throw new Error('useOrders must be used within OrdersProvider');
   }
   return context;
 };
