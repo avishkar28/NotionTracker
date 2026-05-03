@@ -7,6 +7,7 @@ import { scale } from '../utils/responsive';
 import DashboardScreen from '../screens/DashboardScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import TasksScreen from '../screens/TasksScreen';
+import TaskDetailsScreen from '../screens/TaskDetailsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import OrderDetailsScreen from '../screens/OrderDetailsScreen';
 
@@ -28,10 +29,35 @@ const OrdersNavigator = () => (
 const TasksNavigator = () => (
   <TasksStack.Navigator
     screenOptions={{
-      headerShown: false,
+      headerShown: true,
+      headerStyle: {
+        backgroundColor: COLORS.backgroundSecondary,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+      },
+      headerTitleStyle: {
+        color: COLORS.textPrimary,
+        fontFamily: 'Georgia',
+        fontSize: scale(18),
+        fontWeight: '700',
+      },
+      headerTintColor: COLORS.accent,
     }}
   >
-    <TasksStack.Screen name="Tasks" component={TasksScreen} />
+    <TasksStack.Screen
+      name="Tasks"
+      component={TasksScreen}
+      options={{
+        headerShown: false,
+      }}
+    />
+    <TasksStack.Screen
+      name="TaskDetails"
+      component={TaskDetailsScreen}
+      options={({ route }: any) => ({
+        title: route.params?.taskId || 'Task Details',
+      })}
+    />
   </TasksStack.Navigator>
 );
 
