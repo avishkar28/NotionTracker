@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OrdersProvider } from './src/context/OrdersContext';
 import { TasksProvider } from './src/context/TasksContext';
@@ -19,6 +20,7 @@ function AppContent() {
         translucent={false}
       />
       <RootNavigator isLoggedIn={authState.isLoggedIn} />
+      <Toast />
     </>
   );
 }

@@ -14,6 +14,7 @@ import { COLORS } from '../constants/colors';
 import { useTasks } from '../context/TasksContext';
 import { useOrders } from '../context/OrdersContext';
 import { scale } from '../utils/responsive';
+import { showSuccessToast } from '../utils/toast';
 import {
   sortTasksByUrgency,
   enrichTaskWithUrgency,
@@ -186,8 +187,36 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      // Simulate parallel API requests:
+      // GET /orders - refresh all orders
+      // GET /tasks/today - refresh today's tasks
+      const [ordersData, tasksData] = await Promise.all([
+        new Promise((resolve) => {
+          // Simulate GET /orders request (500ms delay)
+          setTimeout(() => {
+            console.log('📡 API: GET /orders - refreshed');
+            resolve(ordersState.orders);
+          }, 500);
+        }),
+        new Promise((resolve) => {
+          // Simulate GET /tasks/today request (400ms delay)
+          setTimeout(() => {
+            console.log('📡 API: GET /tasks/today - refreshed');
+            resolve(tasksState.tasks);
+          }, 400);
+        }),
+      ]);
+
+      // Frontend updates:
+      // - Replace old data with new data (already in context)
+      // - Recalculate stats
+      // - Refresh task categorization
       processTaskData();
+
+      // Show success toast
+      showSuccessToast('✓ Updated', 'Dashboard refreshed');
+    } catch (error) {
+      console.error('Failed to refresh dashboard:', error);
     } finally {
       setRefreshing(false);
     }
