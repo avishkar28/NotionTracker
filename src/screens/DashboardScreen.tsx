@@ -243,8 +243,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
       setUpdatingTaskId(task.id);
 
-      // Haptic feedback (100ms vibration)
-      Vibration.vibrate(100);
+      // Haptic feedback (100ms vibration) - wrapped in try-catch for safety
+      try {
+        Vibration.vibrate(100);
+      } catch (error) {
+        console.warn('⚠️ Vibration not available:', error);
+      }
 
       // Send API request in background
       try {

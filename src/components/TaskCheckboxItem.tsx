@@ -27,8 +27,12 @@ const TaskCheckboxItem: React.FC<TaskCheckboxItemProps> = ({
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   const handleCheckboxPress = () => {
-    // Haptic feedback
-    Vibration.vibrate(50);
+    // Haptic feedback - wrapped in try-catch for safety
+    try {
+      Vibration.vibrate(50);
+    } catch (error) {
+      console.warn('⚠️ Vibration not available:', error);
+    }
 
     // Bounce animation
     Animated.sequence([

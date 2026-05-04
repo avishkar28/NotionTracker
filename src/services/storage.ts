@@ -22,12 +22,21 @@ export const storageService = {
   async getOrders(): Promise<Order[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.ORDERS);
-      if (!data) return [];
+      if (!data) {
+        console.log('📂 No orders in storage yet');
+        return [];
+      }
       const orders = JSON.parse(data);
       console.log('✅ Orders loaded from local storage:', orders.length);
-      return orders;
-    } catch (error) {
-      console.error('❌ Failed to load orders:', error);
+      return Array.isArray(orders) ? orders : [];
+    } catch (error: any) {
+      console.error('❌ Failed to load orders:', error.message || error);
+      // Clear corrupted data
+      try {
+        await AsyncStorage.removeItem(STORAGE_KEYS.ORDERS);
+      } catch (e) {
+        console.error('Failed to clear corrupted orders:', e);
+      }
       return [];
     }
   },
@@ -46,12 +55,21 @@ export const storageService = {
   async getTasks(): Promise<Task[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.TASKS);
-      if (!data) return [];
+      if (!data) {
+        console.log('📂 No tasks in storage yet');
+        return [];
+      }
       const tasks = JSON.parse(data);
       console.log('✅ Tasks loaded from local storage:', tasks.length);
-      return tasks;
-    } catch (error) {
-      console.error('❌ Failed to load tasks:', error);
+      return Array.isArray(tasks) ? tasks : [];
+    } catch (error: any) {
+      console.error('❌ Failed to load tasks:', error.message || error);
+      // Clear corrupted data
+      try {
+        await AsyncStorage.removeItem(STORAGE_KEYS.TASKS);
+      } catch (e) {
+        console.error('Failed to clear corrupted tasks:', e);
+      }
       return [];
     }
   },
@@ -92,18 +110,38 @@ export const storageService = {
 
   // Add a single task
   async addTask(task: Task): Promise<void> {
-    const tasks = await this.getTasks();
-    tasks.push(task);
-    await this.saveTasks(tasks);
+    try {
+      const tasks = await this.getTasks();
+      if (!Array.isArray(tasks)) {
+        throw new Error('Tasks data is corrupted');
+      }
+      tasks.push(task);
+      await this.saveTasks(tasks);
+      console.log('✅ Task added:', task.id);
+    } catch (error: any) {
+      console.error('❌ Failed to add task:', error.message || error);
+      throw error;
+    }
   },
 
   // Update a single task
   async updateTask(id: string, updates: Partial<Task>): Promise<void> {
-    const tasks = await this.getTasks();
-    const index = tasks.findIndex((t) => t.id === id);
-    if (index !== -1) {
-      tasks[index] = { ...tasks[index], ...updates, updatedAt: new Date().toISOString() };
-      await this.saveTasks(tasks);
+    try {
+      const tasks = await this.getTasks();
+      if (!Array.isArray(tasks)) {
+        throw new Error('Tasks data is corrupted');
+      }
+      const index = tasks.findIndex((t) => t.id === id);
+      if (index !== -1) {
+        tasks[index] = { ...tasks[index], ...updates, updatedAt: new Date().toISOString() };
+        await this.saveTasks(tasks);
+        console.log('✅ Task updated:', id);
+      } else {
+        console.warn('⚠️ Task not found for update:', id);
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to update task:', error.message || error);
+      throw error;
     }
   },
 
